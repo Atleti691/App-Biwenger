@@ -80,9 +80,12 @@ def matches_api(request, season, round_number):
 @login_required
 def jornada_api(request, season, jornada):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
-    registro, _ = JornadaRegistro.objects.get_or_create(user_access=access, season=season, jornada=jornada)
     if request.method == 'GET':
+        registro = JornadaRegistro.objects.filter(user_access=access, season=season, jornada=jornada).first()
+        if not registro:
+            return JsonResponse({'datos': {}, 'cerrada': False})
         return JsonResponse({'datos': registro.datos, 'cerrada': registro.cerrada})
+    registro, _ = JornadaRegistro.objects.get_or_create(user_access=access, season=season, jornada=jornada)
     if request.method == 'POST':
         if registro.cerrada and request.user.username != 'Atleti69':
             return JsonResponse({'error': 'La jornada está cerrada'}, status=403)
