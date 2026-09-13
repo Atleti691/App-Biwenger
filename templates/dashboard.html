@@ -18,6 +18,8 @@
     const data=JSON.parse(document.getElementById('users-data').textContent);
     const owners={"Primera División":"Kabes Team","Segunda División":"LLull Team","Primera RFEF":"Reventao","Segunda RFEF":"Carbayon","Liga Moeve":"Kabes Team"};
     const division=document.getElementById('division');
+    // Asociar los usuarios por posición evita fallos si el nombre de una división cambia de codificación.
+    Object.values(document.querySelectorAll('#division option')).forEach((option,index)=>{data[option.value]=Object.values(data)[index]||[];});
     document.querySelector('main').insertAdjacentHTML('afterbegin','<p><a href="/" style="display:inline-block;background:#687386;color:white;text-decoration:none;border-radius:6px;padding:7px 11px">← Menú principal</a></p>');
     addJourneyControls();
     function render(){const list=data[division.value]||[];document.getElementById('responsable').textContent='Responsable: '+owners[division.value];document.getElementById('rows').innerHTML=list.map((u,i)=>`<tr><td>${i+1}</td><td>${u}</td><td><input type="number" value="0" step="1" class="app"></td><td><input type="number" value="0" min="0" max="10" class="q"></td><td><input type="number" value="0" min="0" max="10" class="p"></td><td class="bonus calculated">0</td><td class="gross calculated">0</td><td><button class="clauses" data-user="${u}">Introducir</button></td><td><input type="text" value="" inputmode="numeric" class="money clause-derived" readonly></td><td><input type="number" value="0" class="penalty clause-derived" readonly></td><td class="net total calculated">0</td></tr>`).join('');}
