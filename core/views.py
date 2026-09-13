@@ -1,4 +1,4 @@
-from django.contrib.auth import login
+from django.contrib.auth import get_user_model, login
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
@@ -50,6 +50,24 @@ def change_password(request):
     else:
         form = FirstPasswordChangeForm(request.user)
     return render(request, 'change_password.html', {'form': form})
+
+
+@login_required
+def setup_collaborators(request):
+    if request.user.username != 'Atleti69':
+        return redirect('/')
+    names = ['Kabes Team', 'LLull Team', 'Reventao', 'Carbayon']
+    message = ''
+    if request.method == 'POST':
+        for username in names:
+            password = request.POST.get('password_' + username, '')
+            if password:
+                user, _ = get_user_model().objects.get_or_create(username=username)
+                user.set_password(password)
+                user.save(update_fields=['password'])
+                UserAccess.objects.update_or_create(user=user, defaults={'must_change_password': True})
+        message = 'Cuentas guardadas correctamente. Cada colaborador deberá cambiar su contraseña al entrar.'
+    return render(request, 'setup_collaborators.html', {'names': names, 'message': message})
 
 
 @login_required
