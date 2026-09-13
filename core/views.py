@@ -65,7 +65,7 @@ def dashboard(request):
         'Segunda RFEF': ['Semela','Soar FC','UnaiRZ','Izan Navarro','JaviArsenal','Jose Mourinho','Muñeko','Danilo77','Alex SC','K87','EmiGeta','A.A. Ponte Preta','Atletico Zaragoza','Peluso F.C.','Emilio Ramos','Sevi-21','Esta NFL No la Entiendo','Deckers'],
         'Liga Moeve': ['Titanes65','Antbariba','El Macho','Palacios FC','Real Oviedo','OskitarTeam','Jopehe95','Schalke Te meto','Caimans','Shaiel Afonso Rodriguez','RBN147','Ivan Diaz'],
     }
-    return render(request, 'dashboard.html', {'divisions': divisions, 'users': users, 'jornadas': range(1, 39)})
+    return render(request, 'dashboard.html', {'divisions': divisions, 'users': users, 'initial_users': next(iter(users.values())), 'jornadas': range(1, 39)})
 
 
 @login_required
