@@ -21,6 +21,8 @@
     const fixedUsers=Object.values(data).slice(0,5);
     const owners={"Primera División":"Kabes Team","Segunda División":"LLull Team","Primera RFEF":"Reventao","Segunda RFEF":"Carbayon","Liga Moeve":"Kabes Team"};
     const division=document.getElementById('division');
+    const savedDivision=localStorage.getItem('liga-amigos-selected-division');
+    if(savedDivision && [...division.options].some(option=>option.value===savedDivision))division.value=savedDivision;
     // Asociar los usuarios por posición evita fallos si el nombre de una división cambia de codificación.
     Object.values(document.querySelectorAll('#division option')).forEach((option,index)=>{data[option.value]=Object.values(data)[index]||[];});
     document.querySelector('main').insertAdjacentHTML('afterbegin','<p><a href="/" style="display:inline-block;background:#687386;color:white;text-decoration:none;border-radius:6px;padding:7px 11px">← Menú principal</a></p>');
@@ -54,7 +56,7 @@
     // Última carga defensiva: garantiza que la tabla use la lista de usuarios de la división seleccionada.
     data[division.value]=data[division.value]||Object.values(data)[division.selectedIndex]||[];
     addJourneyControls();
-    division.addEventListener('change',()=>{data[division.value]=fixedUsers[division.selectedIndex]||[];owners[division.value]=['Kabes Team','LLull Team','Reventao','Carbayon','Kabes Team'][division.selectedIndex]||'';render();});
+    division.addEventListener('change',()=>{localStorage.setItem('liga-amigos-selected-division',division.value);data[division.value]=fixedUsers[division.selectedIndex]||[];owners[division.value]=['Kabes Team','LLull Team','Reventao','Carbayon','Kabes Team'][division.selectedIndex]||'';render();});
     render();
   </script>
 </main></body></html>
