@@ -70,6 +70,8 @@
         document.getElementById('responsable').textContent='Responsable: '+(managers[selector.selectedIndex]||'');
         document.getElementById('rows').innerHTML=list.map(function(user,index){return '<tr><td>'+(index+1)+'</td><td>'+user+'</td><td><input type="number" value="0" step="1" class="app"></td><td><input type="number" value="0" min="0" max="10" class="q"></td><td><input type="number" value="0" min="0" max="10" class="p"></td><td class="bonus calculated">0</td><td class="gross calculated">0</td><td><button class="clauses" data-user="'+user+'">Introducir</button></td><td><input type="text" value="" class="money clause-derived" readonly></td><td><input type="number" value="0" class="penalty clause-derived" readonly></td><td class="net total calculated">0</td></tr>';}).join('');
       }
+      function calculate(row){var app=Number(row.querySelector('.app').value)||0;var q=Number(row.querySelector('.q').value)||0;var p=Number(row.querySelector('.p').value)||0;var bonus=q*5+p*10;var gross=app+bonus;var penalty=Number(row.querySelector('.penalty').value)||0;row.querySelector('.bonus').textContent=bonus;row.querySelector('.gross').textContent=gross;row.querySelector('.net').textContent=gross-penalty;}
+      rows.addEventListener('input',function(event){if(event.target.matches('.app,.q,.p'))calculate(event.target.closest('tr'));});
       selector.addEventListener('change',paintDivision);
       paintDivision();
     })();
