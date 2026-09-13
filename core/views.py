@@ -13,7 +13,7 @@ from .services.openligadb import get_matches
 @login_required
 def home(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
-    if access.must_change_password:
+    if access.must_change_password and request.GET.get('skip') != '1':
         return redirect('/cambiar-contrasena/')
     return render(request, 'home.html')
 
