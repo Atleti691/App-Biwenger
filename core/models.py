@@ -27,7 +27,7 @@ class JornadaRegistro(models.Model):
     cerrada = models.BooleanField(default=False)
 
     class Meta:
-    unique_together = ('user_access', 'season', 'jornada', 'division')
+        unique_together = ('user_access', 'season', 'jornada', 'division')
 
     @property
     def puntos_porras_quinielas(self):
