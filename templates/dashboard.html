@@ -59,4 +59,19 @@
     division.addEventListener('change',()=>{localStorage.setItem('liga-amigos-selected-division',division.value);data[division.value]=fixedUsers[division.selectedIndex]||[];owners[division.value]=['Kabes Team','LLull Team','Reventao','Carbayon','Kabes Team'][division.selectedIndex]||'';render();});
     render();
   </script>
+  <script>
+    (function(){
+      var usersObject=JSON.parse(document.getElementById('users-data').textContent);
+      var userLists=Object.keys(usersObject).map(function(key){return usersObject[key]||[];});
+      var managers=['Kabes Team','LLull Team','Reventao','Carbayon','Kabes Team'];
+      var selector=document.getElementById('division');
+      function paintDivision(){
+        var list=userLists[selector.selectedIndex]||[];
+        document.getElementById('responsable').textContent='Responsable: '+(managers[selector.selectedIndex]||'');
+        document.getElementById('rows').innerHTML=list.map(function(user,index){return '<tr><td>'+(index+1)+'</td><td>'+user+'</td><td><input type="number" value="0" step="1" class="app"></td><td><input type="number" value="0" min="0" max="10" class="q"></td><td><input type="number" value="0" min="0" max="10" class="p"></td><td class="bonus calculated">0</td><td class="gross calculated">0</td><td><button class="clauses" data-user="'+user+'">Introducir</button></td><td><input type="text" value="" class="money clause-derived" readonly></td><td><input type="number" value="0" class="penalty clause-derived" readonly></td><td class="net total calculated">0</td></tr>';}).join('');
+      }
+      selector.addEventListener('change',paintDivision);
+      paintDivision();
+    })();
+  </script>
 </main></body></html>
