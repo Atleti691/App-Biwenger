@@ -21,7 +21,6 @@
     // Asociar los usuarios por posición evita fallos si el nombre de una división cambia de codificación.
     Object.values(document.querySelectorAll('#division option')).forEach((option,index)=>{data[option.value]=Object.values(data)[index]||[];});
     document.querySelector('main').insertAdjacentHTML('afterbegin','<p><a href="/" style="display:inline-block;background:#687386;color:white;text-decoration:none;border-radius:6px;padding:7px 11px">← Menú principal</a></p>');
-    addJourneyControls();
     function render(){const list=data[division.value]||[];document.getElementById('responsable').textContent='Responsable: '+owners[division.value];document.getElementById('rows').innerHTML=list.map((u,i)=>`<tr><td>${i+1}</td><td>${u}</td><td><input type="number" value="0" step="1" class="app"></td><td><input type="number" value="0" min="0" max="10" class="q"></td><td><input type="number" value="0" min="0" max="10" class="p"></td><td class="bonus calculated">0</td><td class="gross calculated">0</td><td><button class="clauses" data-user="${u}">Introducir</button></td><td><input type="text" value="" inputmode="numeric" class="money clause-derived" readonly></td><td><input type="number" value="0" class="penalty clause-derived" readonly></td><td class="net total calculated">0</td></tr>`).join('');}
     const storageKey=()=>`liga-amigos-${division.value}-${document.getElementById('jornada').value}`;
     function persistRows(){const state={};document.querySelectorAll('#rows tr').forEach(row=>{const user=row.children[1].textContent;state[user]={app:row.querySelector('.app').value,q:row.querySelector('.q').value,p:row.querySelector('.p').value,money:row.querySelector('.money').value,penalty:row.querySelector('.penalty').value};});localStorage.setItem(storageKey(),JSON.stringify(state));}
@@ -51,6 +50,7 @@
     document.getElementById('matches').addEventListener('click',async()=>{const status=document.getElementById('match-status');const round=Number((document.getElementById('jornada').value.match(/\d+/)||[1])[0]);status.textContent='Consultando jornada '+round+' en OpenLigaDB…';try{const r=await fetch('/api/partidos/2026/'+round+'/');const d=await r.json();if(!r.ok)throw new Error(d.error||'Error del servidor');const games=d.matches||[];document.getElementById('match-rows').innerHTML=games.map(m=>`<tr><td>${m.matchIsFinished?'Finalizado':'Programado'}</td><td>${m.team1?.teamName||'—'}</td><td>${m.team2?.teamName||'—'}</td><td>${m.matchResults?.length?m.matchResults[0].pointsTeam1+' - '+m.matchResults[0].pointsTeam2:'—'}</td></tr>`).join('')||'<tr><td colspan="4">No hay partidos disponibles para esta jornada.</td></tr>';status.textContent='Jornada '+round+' cargada'}catch(e){status.textContent='No se pudo consultar la jornada '+round}});render();
     // Última carga defensiva: garantiza que la tabla use la lista de usuarios de la división seleccionada.
     data[division.value]=data[division.value]||Object.values(data)[division.selectedIndex]||[];
+    addJourneyControls();
     render();
   </script>
 </main></body></html>
