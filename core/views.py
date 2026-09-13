@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from .forms import FirstPasswordChangeForm, LoginForm
-from .models import JornadaRegistro, UserAccess
+from .models import CambioRegistro, JornadaRegistro, UserAccess
 from .services.openligadb import get_matches
 
 
@@ -98,19 +98,26 @@ def matches_api(request, season, round_number):
 @login_required
 def jornada_api(request, season, jornada):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
+    import json
+    division = request.GET.get('division', '')
+    if request.method == 'POST':
+        try:
+            division = json.loads(request.body or '{}').get('division', division)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Datos no válidos'}, status=400)
     if request.method == 'GET':
-        registro = JornadaRegistro.objects.filter(user_access=access, season=season, jornada=jornada).first()
+        registro = JornadaRegistro.objects.filter(user_access=access, season=season, jornada=jornada, division=division).first()
         if not registro:
             return JsonResponse({'datos': {}, 'cerrada': False})
         return JsonResponse({'datos': registro.datos, 'cerrada': registro.cerrada})
-    registro, _ = JornadaRegistro.objects.get_or_create(user_access=access, season=season, jornada=jornada)
+    registro, _ = JornadaRegistro.objects.get_or_create(user_access=access, season=season, jornada=jornada, division=division)
     if request.method == 'POST':
         if registro.cerrada and request.user.username != 'Atleti69':
             return JsonResponse({'error': 'La jornada está cerrada'}, status=403)
-        import json
         payload = json.loads(request.body or '{}')
         registro.datos = payload.get('datos', {})
         registro.cerrada = bool(payload.get('cerrada', registro.cerrada))
         registro.save(update_fields=['datos', 'cerrada', 'updated_at'])
+        CambioRegistro.objects.create(usuario=request.user, division=division, season=season, jornada=jornada, accion='guardar jornada', detalle={'cerrada': registro.cerrada, 'usuarios': len(registro.datos)})
         return JsonResponse({'ok': True, 'cerrada': registro.cerrada})
     return JsonResponse({'error': 'Método no permitido'}, status=405)

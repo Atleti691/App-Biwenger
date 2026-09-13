@@ -14,6 +14,7 @@ class UserAccess(models.Model):
 
 class JornadaRegistro(models.Model):
     user_access = models.ForeignKey(UserAccess, on_delete=models.CASCADE)
+    division = models.CharField(max_length=80, default='')
     season = models.PositiveIntegerField(default=2026)
     jornada = models.PositiveIntegerField()
     puntos_app = models.IntegerField(default=0)
@@ -26,7 +27,7 @@ class JornadaRegistro(models.Model):
     cerrada = models.BooleanField(default=False)
 
     class Meta:
-        unique_together = ('user_access', 'season', 'jornada')
+    unique_together = ('user_access', 'season', 'jornada', 'division')
 
     @property
     def puntos_porras_quinielas(self):
@@ -48,3 +49,13 @@ class Clausula(models.Model):
     valor_dinero = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     penalizacion_dinero = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     penalizacion_puntos = models.IntegerField(default=0)
+
+
+class CambioRegistro(models.Model):
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    division = models.CharField(max_length=80, blank=True)
+    season = models.PositiveIntegerField(default=2026)
+    jornada = models.PositiveIntegerField()
+    accion = models.CharField(max_length=80)
+    detalle = models.JSONField(default=dict, blank=True)
+    creado = models.DateTimeField(auto_now_add=True)

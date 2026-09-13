@@ -74,4 +74,15 @@
       paintDivision();
     })();
   </script>
-</main></body></html>
+</main><script>
+(function(){
+  var division=document.getElementById('division'), jornada=document.getElementById('jornada'), rows=document.getElementById('rows');
+  function url(){var n=(jornada.value.match(/\d+/)||[1])[0];return '/api/jornada/2026/'+n+'/?division='+encodeURIComponent(division.value);}
+  function load(){fetch(url()).then(function(r){return r.json();}).then(function(d){if(d.datos&&Object.keys(d.datos).length){localStorage.setItem('liga-amigos-'+division.value+'-'+jornada.value,JSON.stringify(d.datos));}if(typeof render==='function')render();});}
+  function save(){var datos={};Array.prototype.forEach.call(rows.querySelectorAll('tr'),function(row){var name=row.children[1].textContent;datos[name]={app:row.querySelector('.app').value,q:row.querySelector('.q').value,p:row.querySelector('.p').value,money:row.querySelector('.money').value,penalty:row.querySelector('.penalty').value};});fetch(url().split('?')[0],{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({division:division.value,datos:datos,cerrada:false})});}
+  division.addEventListener('change',function(){setTimeout(load,100);});
+  jornada.addEventListener('change',function(){setTimeout(load,100);});
+  document.getElementById('save').addEventListener('click',function(){setTimeout(save,200);});
+  load();
+})();
+</script></body></html>
