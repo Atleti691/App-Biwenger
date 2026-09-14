@@ -37,7 +37,7 @@ def public_home(request):
 
 @login_required
 def tournaments(request):
-    divisions = ['Primera DivisiÃ³n', 'Segunda DivisiÃ³n', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
+    divisions = ['Primera Divisi\u00f3n', 'Segunda Divisi\u00f3n', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
     return render(request, 'tournaments.html', {'divisions': divisions})
 
 
