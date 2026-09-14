@@ -1,4 +1,6 @@
-from django.contrib.auth import get_user_model, login
+from datetime import timedelta
+
+from django.contrib.auth import get_user_model, login, logout
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
@@ -9,10 +11,21 @@ from .forms import FirstPasswordChangeForm, LoginForm
 from .models import CambioRegistro, JornadaRegistro, UserAccess
 from .services.openligadb import get_matches
 
+EDIT_DIVISIONS = {
+    'Atleti69': {'*'},
+    'Kabes Team': {'Primera División', 'Liga Moeve'},
+    'LLull Team': {'Segunda División'},
+    'Reventao': {'Primera RFEF'},
+    'Carbayon': {'Segunda RFEF'},
+}
+
 
 @login_required
 def home(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
+    if access.access_expires_at and access.access_expires_at <= timezone.now():
+        logout(request)
+        return redirect('/login/?expired=1')
     if access.must_change_password and request.GET.get('skip') != '1':
         return redirect('/cambiar-contrasena/')
     return render(request, 'home.html')
@@ -58,7 +71,32 @@ def setup_collaborators(request):
         return redirect('/')
     names = ['Kabes Team', 'LLull Team', 'Reventao', 'Carbayon']
     message = ''
-    if request.method == 'POST':
+    if request.method == 'POST' and request.POST.get('action') == 'create_user':
+        username = request.POST.get('new_username', '').strip()
+        password = request.POST.get('new_password', '')
+        duration = max(1, int(request.POST.get('duration', '1') or 1))
+        unit = request.POST.get('duration_unit', 'permanent')
+        if username and password:
+            user, _ = get_user_model().objects.get_or_create(username=username)
+            user.set_password(password)
+            user.save()
+            expires_at = None
+            if unit == 'hours':
+                expires_at = timezone.now() + timedelta(hours=duration)
+            elif unit == 'days':
+                expires_at = timezone.now() + timedelta(days=duration)
+            UserAccess.objects.update_or_create(
+                user=user,
+                defaults={
+                    'must_change_password': True,
+                    'is_viewer': True,
+                    'access_expires_at': expires_at,
+                },
+            )
+            message = f'Usuario {username} creado correctamente.'
+        else:
+            message = 'Es necesario indicar usuario y contraseña.'
+    elif request.method == 'POST':
         for username in names:
             password = request.POST.get('password_' + username, '')
             if password:
@@ -67,12 +105,22 @@ def setup_collaborators(request):
                 user.save(update_fields=['password'])
                 UserAccess.objects.update_or_create(user=user, defaults={'must_change_password': True})
         message = 'Cuentas guardadas correctamente. Cada colaborador deberá cambiar su contraseña al entrar.'
-    return render(request, 'setup_collaborators.html', {'names': names, 'message': message})
+    managed_users = UserAccess.objects.select_related('user').order_by('user__username')
+    recent_changes = CambioRegistro.objects.select_related('usuario').order_by('-creado')[:100]
+    return render(request, 'setup_collaborators.html', {
+        'names': names,
+        'message': message,
+        'managed_users': managed_users,
+        'recent_changes': recent_changes,
+    })
 
 
 @login_required
 def dashboard(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
+    if access.access_expires_at and access.access_expires_at <= timezone.now():
+        logout(request)
+        return redirect('/login/?expired=1')
     if access.must_change_password:
         return redirect('/cambiar-contrasena/')
     divisions = [('Primera División', 'Kabes Team'), ('Segunda División', 'LLull Team'), ('Primera RFEF', 'Reventao'), ('Segunda RFEF', 'Carbayon'), ('Liga Moeve', 'Kabes Team')]
@@ -112,6 +160,9 @@ def jornada_api(request, season, jornada):
         return JsonResponse({'datos': registro.datos, 'cerrada': registro.cerrada})
     registro, _ = JornadaRegistro.objects.get_or_create(user_access=access, season=season, jornada=jornada, division=division)
     if request.method == 'POST':
+        allowed = EDIT_DIVISIONS.get(request.user.username, set())
+        if '*' not in allowed and division not in allowed:
+            return JsonResponse({'error': 'Solo puedes consultar esta división'}, status=403)
         if registro.cerrada and request.user.username != 'Atleti69':
             return JsonResponse({'error': 'La jornada está cerrada'}, status=403)
         payload = json.loads(request.body or '{}')

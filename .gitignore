@@ -6,3 +6,5 @@ config/initial_credentials.txt
 venv/
 staticfiles/
 media/
+.codex-test-deps/
+codex-test.sqlite3

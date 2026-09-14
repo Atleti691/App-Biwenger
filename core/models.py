@@ -7,6 +7,8 @@ class UserAccess(models.Model):
     division = models.CharField(max_length=80, blank=True)
     must_change_password = models.BooleanField(default=True)
     password_changed_at = models.DateTimeField(null=True, blank=True)
+    is_viewer = models.BooleanField(default=False)
+    access_expires_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f'{self.user.username} - {self.division or "Administrador"}'
