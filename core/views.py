@@ -40,6 +40,38 @@ def tournaments(request):
     return render(request, 'tournaments.html')
 
 
+@login_required
+def statistics(request):
+    divisions = ['Primera División', 'Segunda División', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
+    return render(request, 'statistics.html', {'divisions': divisions, 'jornadas': range(1, 39)})
+
+
+@login_required
+def statistics_api(request, season, jornada):
+    division = request.GET.get('division', '')
+    registro = JornadaRegistro.objects.filter(
+        season=season, jornada=jornada, division=division
+    ).order_by('-updated_at').first()
+    rows = []
+    for manager, values in (registro.datos if registro else {}).items():
+        app = int(values.get('app') or 0)
+        quinielas = int(values.get('q') or 0)
+        porras = int(values.get('p') or 0)
+        bonus = quinielas * 5 + porras * 10
+        penalty = int(values.get('penalty') or 0)
+        rows.append({
+            'manager': manager,
+            'app': app,
+            'quinielas': quinielas,
+            'porras': porras,
+            'bonus': bonus,
+            'money': values.get('money') or '',
+            'penalty': penalty,
+            'total': app + bonus - penalty,
+        })
+    return JsonResponse({'rows': rows, 'closed': bool(registro and registro.cerrada)})
+
+
 class AppLoginView(LoginView):
     authentication_form = LoginForm
     template_name = 'login.html'
