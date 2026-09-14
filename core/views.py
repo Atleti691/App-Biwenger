@@ -49,27 +49,34 @@ def statistics(request):
 @login_required
 def statistics_api(request, season, jornada):
     division = request.GET.get('division', '')
-    registro = JornadaRegistro.objects.filter(
-        season=season, jornada=jornada, division=division
-    ).order_by('-updated_at').first()
-    rows = []
-    for manager, values in (registro.datos if registro else {}).items():
-        app = int(values.get('app') or 0)
-        quinielas = int(values.get('q') or 0)
-        porras = int(values.get('p') or 0)
-        bonus = quinielas * 5 + porras * 10
-        penalty = int(values.get('penalty') or 0)
-        rows.append({
-            'manager': manager,
-            'app': app,
-            'quinielas': quinielas,
-            'porras': porras,
-            'bonus': bonus,
-            'money': values.get('money') or '',
-            'penalty': penalty,
-            'total': app + bonus - penalty,
-        })
-    return JsonResponse({'rows': rows, 'closed': bool(registro and registro.cerrada)})
+    mode = request.GET.get('mode', 'round')
+    queryset = JornadaRegistro.objects.filter(season=season, division=division)
+    if mode != 'general':
+        queryset = queryset.filter(jornada=jornada)
+    records, seen = [], set()
+    for record in queryset.order_by('jornada', '-updated_at'):
+        if record.jornada not in seen:
+            records.append(record)
+            seen.add(record.jornada)
+    totals = {}
+    for record in records:
+        for manager, values in record.datos.items():
+            row = totals.setdefault(manager, {'manager': manager, 'app': 0, 'quinielas': 0, 'porras': 0, 'bonus': 0, 'money': 0, 'penalty': 0, 'total': 0})
+            app = int(values.get('app') or 0)
+            quinielas = int(values.get('q') or 0)
+            porras = int(values.get('p') or 0)
+            bonus = quinielas * 5 + porras * 10
+            penalty = int(values.get('penalty') or 0)
+            money = int(''.join(character for character in str(values.get('money') or '') if character.isdigit()) or 0)
+            row['app'] += app
+            row['quinielas'] += quinielas
+            row['porras'] += porras
+            row['bonus'] += bonus
+            row['money'] += money
+            row['penalty'] += penalty
+            row['total'] += app + bonus - penalty
+    rows = list(totals.values())
+    return JsonResponse({'rows': rows, 'closed': bool(records and all(record.cerrada for record in records)), 'journeys': len(records)})
 
 
 class AppLoginView(LoginView):
@@ -98,7 +105,7 @@ def change_password(request):
 
 
 @login_required
-def setup_collaborators(request):
+def _legacy_setup_collaborators(request):
     if request.user.username != 'Atleti69':
         return redirect('/')
     names = ['Kabes Team', 'LLull Team', 'Reventao', 'Carbayon']
@@ -148,6 +155,64 @@ def setup_collaborators(request):
 
 
 @login_required
+def setup_collaborators(request):
+    access, _ = UserAccess.objects.get_or_create(user=request.user)
+    if request.user.username != 'Atleti69' and access.role != 'admin':
+        return redirect('/')
+    divisions = ['Primera División', 'Segunda División', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
+    message = ''
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+        target_id = request.POST.get('user_id')
+        if action == 'delete_user' and target_id:
+            target = get_user_model().objects.filter(pk=target_id).first()
+            if target and target.username != 'Atleti69':
+                username = target.username
+                target.delete()
+                CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='eliminar usuario', detalle={'usuario': username})
+                message = f'Usuario {username} eliminado.'
+        elif action == 'update_user' and target_id:
+            target = get_user_model().objects.filter(pk=target_id).first()
+            if target:
+                target_access, _ = UserAccess.objects.get_or_create(user=target)
+                if target.username != 'Atleti69':
+                    target_access.role = request.POST.get('role', 'viewer')
+                    target_access.is_viewer = target_access.role == 'viewer'
+                    target_access.editable_divisions = request.POST.getlist('divisions') if target_access.role == 'collaborator' else []
+                    target_access.save(update_fields=['role', 'is_viewer', 'editable_divisions'])
+                    CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='cambiar permisos', detalle={'usuario': target.username, 'rol': target_access.role})
+                    message = f'Permisos de {target.username} actualizados.'
+        elif action == 'create_user':
+            username = request.POST.get('new_username', '').strip()
+            password = request.POST.get('new_password', '')
+            role = request.POST.get('role', 'viewer')
+            try:
+                duration = max(1, int(request.POST.get('duration', '1') or 1))
+            except ValueError:
+                duration = 1
+            unit = request.POST.get('duration_unit', 'permanent')
+            if username and password:
+                user, _ = get_user_model().objects.get_or_create(username=username)
+                user.set_password(password)
+                user.save()
+                expires_at = timezone.now() + timedelta(hours=duration) if unit == 'hours' else timezone.now() + timedelta(days=duration) if unit == 'days' else None
+                UserAccess.objects.update_or_create(user=user, defaults={
+                    'must_change_password': True,
+                    'is_viewer': role == 'viewer',
+                    'role': role,
+                    'editable_divisions': request.POST.getlist('divisions') if role == 'collaborator' else [],
+                    'access_expires_at': expires_at,
+                })
+                CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='crear usuario', detalle={'usuario': username, 'rol': role})
+                message = f'Usuario {username} creado correctamente.'
+            else:
+                message = 'Es necesario indicar usuario y contraseña.'
+    managed_users = UserAccess.objects.select_related('user').order_by('user__username')
+    recent_changes = CambioRegistro.objects.select_related('usuario').order_by('-creado')[:100]
+    return render(request, 'setup_collaborators.html', {'message': message, 'managed_users': managed_users, 'recent_changes': recent_changes, 'divisions': divisions})
+
+
+@login_required
 def dashboard(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
     if access.access_expires_at and access.access_expires_at <= timezone.now():
@@ -163,7 +228,17 @@ def dashboard(request):
         'Segunda RFEF': ['Semela','Soar FC','UnaiRZ','Izan Navarro','JaviArsenal','Jose Mourinho','Muñeko','Danilo77','Alex SC','K87','EmiGeta','A.A. Ponte Preta','Atletico Zaragoza','Peluso F.C.','Emilio Ramos','Sevi-21','Esta NFL No la Entiendo','Deckers'],
         'Liga Moeve': ['Titanes65','Antbariba','El Macho','Palacios FC','Real Oviedo','OskitarTeam','Jopehe95','Schalke Te meto','Caimans','Shaiel Afonso Rodriguez','RBN147','Ivan Diaz'],
     }
-    return render(request, 'dashboard.html', {'divisions': divisions, 'users': users, 'initial_users': next(iter(users.values())), 'jornadas': range(1, 39)})
+    legacy_allowed = EDIT_DIVISIONS.get(request.user.username, set())
+    editable_divisions = [division for division, _ in divisions if division in legacy_allowed]
+    editable_divisions.extend(access.editable_divisions)
+    return render(request, 'dashboard.html', {
+        'divisions': divisions,
+        'users': users,
+        'initial_users': next(iter(users.values())),
+        'jornadas': range(1, 39),
+        'editable_divisions': list(dict.fromkeys(editable_divisions)),
+        'can_edit_all': request.user.username == 'Atleti69' or access.role == 'admin',
+    })
 
 
 @login_required
@@ -186,16 +261,17 @@ def jornada_api(request, season, jornada):
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Datos no válidos'}, status=400)
     if request.method == 'GET':
-        registro = JornadaRegistro.objects.filter(user_access=access, season=season, jornada=jornada, division=division).first()
+        registro = JornadaRegistro.objects.filter(season=season, jornada=jornada, division=division).order_by('-updated_at').first()
         if not registro:
             return JsonResponse({'datos': {}, 'cerrada': False})
         return JsonResponse({'datos': registro.datos, 'cerrada': registro.cerrada})
     registro, _ = JornadaRegistro.objects.get_or_create(user_access=access, season=season, jornada=jornada, division=division)
     if request.method == 'POST':
         allowed = EDIT_DIVISIONS.get(request.user.username, set())
-        if '*' not in allowed and division not in allowed:
+        can_edit = access.role == 'admin' or '*' in allowed or division in access.editable_divisions or division in allowed
+        if not can_edit:
             return JsonResponse({'error': 'Solo puedes consultar esta división'}, status=403)
-        if registro.cerrada and request.user.username != 'Atleti69':
+        if registro.cerrada and request.user.username != 'Atleti69' and access.role != 'admin':
             return JsonResponse({'error': 'La jornada está cerrada'}, status=403)
         payload = json.loads(request.body or '{}')
         registro.datos = payload.get('datos', {})
