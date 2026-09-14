@@ -37,7 +37,8 @@ def public_home(request):
 
 @login_required
 def tournaments(request):
-    return render(request, 'tournaments.html')
+    divisions = ['Primera DivisiÃ³n', 'Segunda DivisiÃ³n', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
+    return render(request, 'tournaments.html', {'divisions': divisions})
 
 
 @login_required
@@ -53,6 +54,13 @@ def statistics_api(request, season, jornada):
     queryset = JornadaRegistro.objects.filter(season=season, division=division)
     if mode != 'general':
         queryset = queryset.filter(jornada=jornada)
+    else:
+        try:
+            through = int(request.GET.get('through', '0'))
+        except ValueError:
+            through = 0
+        if through > 0:
+            queryset = queryset.filter(jornada__lte=through)
     records, seen = [], set()
     for record in queryset.order_by('jornada', '-updated_at'):
         if record.jornada not in seen:
