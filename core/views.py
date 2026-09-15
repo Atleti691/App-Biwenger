@@ -1,4 +1,5 @@
 from datetime import timedelta
+import unicodedata
 
 from django.contrib.auth import get_user_model, login, logout
 from django.views.decorators.csrf import csrf_exempt
@@ -74,6 +75,32 @@ def communications(request):
 @login_required
 def vip_matches(request):
     return render(request, 'vip_matches.html')
+
+
+@login_required
+def origins(request):
+    coordinates = {
+        'a coruna': (43.36, -8.41), 'alava': (42.85, -2.67), 'albacete': (38.99, -1.86), 'alicante': (38.35, -0.49), 'almeria': (36.84, -2.46), 'asturias': (43.36, -5.85), 'avila': (40.66, -4.70),
+        'badajoz': (38.88, -6.97), 'barcelona': (41.39, 2.17), 'bizkaia': (43.26, -2.93), 'burgos': (42.34, -3.70), 'caceres': (39.48, -6.37), 'cadiz': (36.53, -6.29), 'cantabria': (43.46, -3.81),
+        'castellon': (39.99, -0.04), 'ceuta': (35.89, -5.32), 'ciudad real': (38.99, -3.93), 'cordoba': (37.89, -4.78), 'cuenca': (40.07, -2.14), 'girona': (41.98, 2.82), 'granada': (37.18, -3.60),
+        'guadalajara': (40.63, -3.17), 'gipuzkoa': (43.32, -1.98), 'guipuzcoa': (43.32, -1.98), 'huelva': (37.26, -6.94), 'huesca': (42.14, -0.41), 'illes balears': (39.57, 2.65), 'islas baleares': (39.57, 2.65),
+        'jaen': (37.78, -3.79), 'la rioja': (42.47, -2.45), 'las palmas': (28.12, -15.44), 'leon': (42.60, -5.57), 'lleida': (41.62, 0.62), 'lugo': (43.01, -7.56), 'madrid': (40.42, -3.70),
+        'malaga': (36.72, -4.42), 'melilla': (35.29, -2.94), 'murcia': (37.98, -1.13), 'navarra': (42.82, -1.64), 'ourense': (42.34, -7.86), 'palencia': (42.01, -4.53), 'pontevedra': (42.43, -8.64),
+        'salamanca': (40.97, -5.66), 'santa cruz de tenerife': (28.46, -16.25), 'segovia': (40.95, -4.12), 'sevilla': (37.39, -5.98), 'soria': (41.76, -2.47), 'tarragona': (41.12, 1.25), 'teruel': (40.34, -1.11),
+        'toledo': (39.86, -4.03), 'valencia': (39.47, -0.38), 'valladolid': (41.65, -4.72), 'zamora': (41.50, -5.74), 'zaragoza': (41.65, -0.89),
+    }
+    grouped, unresolved = {}, []
+    aliases = {'coruna': 'a coruna', 'vizcaya': 'bizkaia', 'baleares': 'islas baleares'}
+    for contact in ContactoManager.objects.exclude(provincia='').order_by('provincia', 'manager'):
+        key = ''.join(character for character in unicodedata.normalize('NFD', contact.provincia.lower().strip()) if unicodedata.category(character) != 'Mn')
+        key = aliases.get(key, key)
+        point = coordinates.get(key)
+        if not point:
+            unresolved.append({'manager': contact.manager, 'provincia': contact.provincia, 'division': contact.division})
+            continue
+        item = grouped.setdefault(key, {'provincia': contact.provincia, 'lat': point[0], 'lon': point[1], 'managers': []})
+        item['managers'].append({'manager': contact.manager, 'division': contact.division})
+    return render(request, 'origins.html', {'markers': list(grouped.values()), 'unresolved': unresolved, 'total': ContactoManager.objects.exclude(provincia='').count()})
 
 
 @login_required
