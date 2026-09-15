@@ -4,11 +4,12 @@ from django.contrib.auth import get_user_model, login, logout
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
+from django.core.mail import EmailMessage
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from .forms import FirstPasswordChangeForm, LoginForm
-from .models import CambioRegistro, JornadaRegistro, UserAccess
+from .models import CambioRegistro, ContactoManager, JornadaRegistro, UserAccess
 from .services.openligadb import get_matches
 
 EDIT_DIVISIONS = {
@@ -17,6 +18,14 @@ EDIT_DIVISIONS = {
     'LLull Team': {'Segunda División'},
     'Reventao': {'Primera RFEF'},
     'Carbayon': {'Segunda RFEF'},
+}
+
+LEAGUE_MANAGERS = {
+    'Primera Divisi\u00f3n': ['AlexJulio','Rexza','C.D.F. Arrieritos','Gestafa FC','Golden Ball','Ivanetti',"Kabe's Team",'Maceda','Mouki','Munera City','Raul C','Real JR','I\u00f1igoool!!!!','Reventao','Tuercebotas','Llull Team','Pablo Cuevas','Joselillo81'],
+    'Segunda Divisi\u00f3n': ['Marina','Kataki Villenero','Carbayon','At. Aviacion','Vendy','Goyo','Rocky Team','Ruben 1903ATM','Jackobo','Baetulo','FC Almog\u00e1vers','Re Creativo Igualadino','Rapido de Bouzas','Gasteiz United','eMCasa','Gabrielix de Asturin','Adrianpt260','SpartanAgain'],
+    'Primera RFEF': ['Estefan\u00eda','Guerreros F.C','Pcotop Team','El Cabo','Checo21','C.D. Covadonga','Patontografos F.C','CD Cayon','Resalso','Beagar13','Gsgg Team','Manuymarian',"Minuto 94'",'JAM F.C.','Litoscaboalles','Atleti69','Maicame'],
+    'Segunda RFEF': ['Semela','Soar FC','UnaiRZ','Izan Navarro','JaviArsenal','Jose Mourinho','Mu\u00f1eko','Danilo77','Alex SC','K87','EmiGeta','A.A. Ponte Preta','Atletico Zaragoza','Peluso F.C.','Emilio Ramos','Sevi-21','Esta NFL No la Entiendo','Deckers'],
+    'Liga Moeve': ['Titanes65','Antbariba','El Macho','Palacios FC','Real Oviedo','OskitarTeam','Jopehe95','Schalke Te meto','Caimans','Shaiel Afonso Rodriguez','RBN147','Ivan Diaz'],
 }
 
 
@@ -33,6 +42,37 @@ def home(request):
 
 def public_home(request):
     return render(request, 'public_home.html')
+
+
+def contact_form(request):
+    message = ''
+    selected_division = request.POST.get('division', '')
+    if request.method == 'POST':
+        manager = request.POST.get('manager', '').strip()
+        email = request.POST.get('email', '').strip()
+        provincia = request.POST.get('provincia', '').strip()
+        if selected_division in LEAGUE_MANAGERS and manager in LEAGUE_MANAGERS[selected_division] and email and provincia:
+            ContactoManager.objects.update_or_create(division=selected_division, manager=manager, defaults={'email': email, 'provincia': provincia})
+            message = 'Datos guardados correctamente. Muchas gracias.'
+        else:
+            message = 'Revisa la división, el manager, el correo y la provincia.'
+    return render(request, 'contact_form.html', {'league_managers': LEAGUE_MANAGERS, 'message': message, 'selected_division': selected_division})
+
+
+@login_required
+def communications(request):
+    access, _ = UserAccess.objects.get_or_create(user=request.user)
+    if request.user.username != 'Atleti69' and access.role != 'admin':
+        return redirect('/')
+    contacts = {(item.division, item.manager): item for item in ContactoManager.objects.all()}
+    rows = [{'division': division, 'manager': manager, 'contact': contacts.get((division, manager))} for division, managers in LEAGUE_MANAGERS.items() for manager in managers]
+    share_url = request.build_absolute_uri('/actualizar-contacto/')
+    return render(request, 'communications.html', {'rows': rows, 'share_url': share_url, 'completed': len(contacts), 'total': len(rows)})
+
+
+@login_required
+def vip_matches(request):
+    return render(request, 'vip_matches.html')
 
 
 @login_required
@@ -282,9 +322,18 @@ def jornada_api(request, season, jornada):
         if registro.cerrada and request.user.username != 'Atleti69' and access.role != 'admin':
             return JsonResponse({'error': 'La jornada está cerrada'}, status=403)
         payload = json.loads(request.body or '{}')
+        was_closed = registro.cerrada
         registro.datos = payload.get('datos', {})
         registro.cerrada = bool(payload.get('cerrada', registro.cerrada))
         registro.save(update_fields=['datos', 'cerrada', 'updated_at'])
         CambioRegistro.objects.create(usuario=request.user, division=division, season=season, jornada=jornada, accion='guardar jornada', detalle={'cerrada': registro.cerrada, 'usuarios': len(registro.datos)})
+        if registro.cerrada and not was_closed:
+            recipients = list(ContactoManager.objects.exclude(email='').values_list('email', flat=True).distinct())
+            if recipients:
+                EmailMessage(
+                    subject=f'Liga Amigos XI — jornada {jornada} cerrada',
+                    body=f'La jornada {jornada} de {division} ha sido cerrada. Ya puedes consultar los resultados y las clasificaciones en la aplicación.',
+                    bcc=recipients,
+                ).send(fail_silently=True)
         return JsonResponse({'ok': True, 'cerrada': registro.cerrada})
     return JsonResponse({'error': 'Método no permitido'}, status=405)

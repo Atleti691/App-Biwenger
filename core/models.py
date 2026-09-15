@@ -68,3 +68,17 @@ class CambioRegistro(models.Model):
     accion = models.CharField(max_length=80)
     detalle = models.JSONField(default=dict, blank=True)
     creado = models.DateTimeField(auto_now_add=True)
+
+
+class ContactoManager(models.Model):
+    division = models.CharField(max_length=80)
+    manager = models.CharField(max_length=120)
+    email = models.EmailField()
+    provincia = models.CharField(max_length=80)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('division', 'manager')
+
+    def __str__(self):
+        return f'{self.manager} — {self.division}'
