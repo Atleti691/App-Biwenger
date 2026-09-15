@@ -5,6 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.mail import EmailMessage
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -100,7 +101,8 @@ def statistics_api(request, season, jornada):
         except ValueError:
             through = 0
         if through > 0:
-            queryset = queryset.filter(jornada__lte=through)
+            postponed = [100 + number for number in (1, 6) if number <= through]
+            queryset = queryset.filter(Q(jornada__lte=through) | Q(jornada__in=postponed))
     records, seen = [], set()
     for record in queryset.order_by('jornada', '-updated_at'):
         if record.jornada not in seen:
