@@ -219,6 +219,17 @@ def setup_collaborators(request):
                 target.delete()
                 CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='eliminar usuario', detalle={'usuario': username})
                 message = f'Usuario {username} eliminado.'
+        elif action == 'reset_password' and target_id:
+            target = get_user_model().objects.filter(pk=target_id).first()
+            new_password = request.POST.get('new_password', '')
+            if target and new_password:
+                target.set_password(new_password)
+                target.save(update_fields=['password'])
+                target_access, _ = UserAccess.objects.get_or_create(user=target)
+                target_access.must_change_password = target != request.user
+                target_access.save(update_fields=['must_change_password'])
+                CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='cambiar contrase\u00f1a', detalle={'usuario': target.username})
+                message = f'Contrase\u00f1a de {target.username} actualizada.'
         elif action == 'update_user' and target_id:
             target = get_user_model().objects.filter(pk=target_id).first()
             if target:
@@ -319,9 +330,12 @@ def jornada_api(request, season, jornada):
         can_edit = access.role == 'admin' or '*' in allowed or division in access.editable_divisions or division in allowed
         if not can_edit:
             return JsonResponse({'error': 'Solo puedes consultar esta división'}, status=403)
-        if registro.cerrada and request.user.username != 'Atleti69' and access.role != 'admin':
-            return JsonResponse({'error': 'La jornada está cerrada'}, status=403)
         payload = json.loads(request.body or '{}')
+        if registro.cerrada:
+            is_admin = request.user.username == 'Atleti69' or access.role == 'admin'
+            is_reopening = payload.get('cerrada') is False
+            if not is_admin or not is_reopening:
+                return JsonResponse({'error': 'La jornada está cerrada. Debes reabrirla antes de modificarla.'}, status=403)
         was_closed = registro.cerrada
         registro.datos = payload.get('datos', {})
         registro.cerrada = bool(payload.get('cerrada', registro.cerrada))
