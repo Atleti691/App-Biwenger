@@ -88,6 +88,8 @@ class PartidoVIP(models.Model):
     titulo = models.CharField(max_length=140)
     equipo_local = models.CharField(max_length=80)
     equipo_visitante = models.CharField(max_length=80)
+    escudo_local = models.URLField(blank=True)
+    escudo_visitante = models.URLField(blank=True)
     fecha_cierre = models.DateTimeField()
     goles_reales = models.PositiveSmallIntegerField(null=True, blank=True)
     cerrado = models.BooleanField(default=False)

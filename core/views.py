@@ -1,4 +1,5 @@
 from datetime import timedelta
+import secrets
 import unicodedata
 
 from django.contrib.auth import get_user_model, login, logout
@@ -12,7 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from .forms import FirstPasswordChangeForm, LoginForm
 from .models import CambioRegistro, ContactoManager, JornadaRegistro, PartidoVIP, UserAccess, VotoPartidoVIP
-from .services.openligadb import get_matches
+from .services.openligadb import get_matches, get_team_logo
 
 EDIT_DIVISIONS = {
     'Atleti69': {'*'},
@@ -66,10 +67,22 @@ def communications(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
     if request.user.username != 'Atleti69' and access.role != 'admin':
         return redirect('/')
+    message = ''
+    if request.method == 'POST':
+        contact = get_object_or_404(ContactoManager, pk=request.POST.get('contact_id'))
+        email = request.POST.get('email', '').strip()
+        provincia = request.POST.get('provincia', '').strip()
+        if email and provincia:
+            contact.email = email
+            contact.provincia = provincia
+            contact.save(update_fields=['email', 'provincia', 'actualizado'])
+            message = f'Datos de {contact.manager} actualizados correctamente.'
+        else:
+            message = 'El correo y la provincia son obligatorios.'
     contacts = {(item.division, item.manager): item for item in ContactoManager.objects.all()}
     rows = [{'division': division, 'manager': manager, 'contact': contacts.get((division, manager))} for division, managers in LEAGUE_MANAGERS.items() for manager in managers]
     share_url = request.build_absolute_uri('/actualizar-contacto/')
-    return render(request, 'communications.html', {'rows': rows, 'share_url': share_url, 'completed': len(contacts), 'total': len(rows)})
+    return render(request, 'communications.html', {'rows': rows, 'share_url': share_url, 'completed': len(contacts), 'total': len(rows), 'message': message})
 
 
 @login_required
@@ -81,10 +94,14 @@ def vip_matches(request):
         action = request.POST.get('action')
         if action == 'create':
             try:
+                local = request.POST.get('equipo_local', '').strip()
+                visitante = request.POST.get('equipo_visitante', '').strip()
                 PartidoVIP.objects.create(
                     titulo=request.POST.get('titulo', '').strip(),
-                    equipo_local=request.POST.get('equipo_local', '').strip(),
-                    equipo_visitante=request.POST.get('equipo_visitante', '').strip(),
+                    equipo_local=local,
+                    equipo_visitante=visitante,
+                    escudo_local=request.POST.get('escudo_local', '').strip() or get_team_logo(local),
+                    escudo_visitante=request.POST.get('escudo_visitante', '').strip() or get_team_logo(visitante),
                     fecha_cierre=timezone.make_aware(__import__('datetime').datetime.fromisoformat(request.POST['fecha_cierre'])),
                 )
                 message = 'Partido VIP creado.'
@@ -110,6 +127,15 @@ def vip_matches(request):
             total = int(row.get('app') or 0) + int(row.get('q') or 0) * 5 + int(row.get('p') or 0) * 10 - int(row.get('penalty') or 0)
             manager_points[(registro.division, manager)] = manager_points.get((registro.division, manager), 0) + total
     for partido in partidos:
+        logo_fields = []
+        if not partido.escudo_local:
+            partido.escudo_local = get_team_logo(partido.equipo_local)
+            logo_fields.append('escudo_local')
+        if not partido.escudo_visitante:
+            partido.escudo_visitante = get_team_logo(partido.equipo_visitante)
+            logo_fields.append('escudo_visitante')
+        if logo_fields and (partido.escudo_local or partido.escudo_visitante):
+            partido.save(update_fields=logo_fields)
         partido.vote_url = request.build_absolute_uri(f'/partidos-vip/votar/{partido.id}/')
         partido.participantes = partido.votos.count()
         groups = {'local': [], 'visitante': []}
@@ -127,19 +153,44 @@ def vip_matches(request):
 
 def vip_vote(request, partido_id):
     partido = get_object_or_404(PartidoVIP, pk=partido_id)
+    logo_fields = []
+    if not partido.escudo_local:
+        partido.escudo_local = get_team_logo(partido.equipo_local)
+        logo_fields.append('escudo_local')
+    if not partido.escudo_visitante:
+        partido.escudo_visitante = get_team_logo(partido.equipo_visitante)
+        logo_fields.append('escudo_visitante')
+    if logo_fields and (partido.escudo_local or partido.escudo_visitante):
+        partido.save(update_fields=logo_fields)
     message = ''
     selected_division = request.POST.get('division', '')
+    verification_sent = False
+    selected_manager = request.POST.get('manager', '')
     if request.method == 'POST' and not partido.cerrado and timezone.now() <= partido.fecha_cierre:
-        manager = request.POST.get('manager', '')
-        if manager in LEAGUE_MANAGERS.get(selected_division, []):
-            VotoPartidoVIP.objects.update_or_create(partido=partido, division=selected_division, manager=manager, defaults={'posicionamiento': request.POST.get('posicionamiento'), 'pronostico_goles': request.POST.get('pronostico_goles')})
-            contact = ContactoManager.objects.filter(division=selected_division, manager=manager).first()
-            if contact and contact.email:
-                EmailMessage(subject=f'Voto confirmado — {partido.titulo}', body=f'Hola {manager}. Tu voto para {partido.titulo} ha quedado registrado correctamente.', to=[contact.email]).send(fail_silently=True)
-            message = 'Voto guardado correctamente. Te hemos enviado una confirmación si tenemos tu correo.'
-        else:
-            message = 'Selecciona una división y un manager válidos.'
-    return render(request, 'vip_vote.html', {'partido': partido, 'league_managers': LEAGUE_MANAGERS, 'selected_division': selected_division, 'message': message})
+        action = request.POST.get('action')
+        contact = ContactoManager.objects.filter(division=selected_division, manager=selected_manager).first()
+        if action == 'send_code' and contact and contact.email.lower() == request.POST.get('email', '').strip().lower():
+            code = f'{secrets.randbelow(1000000):06d}'
+            request.session[f'vip_code_{partido.id}'] = {'division': selected_division, 'manager': selected_manager, 'code': code, 'expires': (timezone.now() + timedelta(minutes=15)).isoformat()}
+            EmailMessage(subject=f'Código de votación — {partido.titulo}', body=f'Tu código para votar es {code}. Caduca en 15 minutos.', to=[contact.email]).send(fail_silently=True)
+            verification_sent = True
+            message = 'Código enviado. Revisa tu correo e introdúcelo para votar.'
+        elif action == 'send_code':
+            message = 'El correo no coincide con el registrado para ese manager.'
+        elif action == 'vote':
+            verification = request.session.get(f'vip_code_{partido.id}', {})
+            valid = verification.get('division') == selected_division and verification.get('manager') == selected_manager and verification.get('code') == request.POST.get('code', '').strip() and verification.get('expires', '') > timezone.now().isoformat()
+            if not valid:
+                message = 'El código no es correcto o ha caducado. Solicita uno nuevo.'
+                verification_sent = True
+            elif selected_manager in LEAGUE_MANAGERS.get(selected_division, []):
+                VotoPartidoVIP.objects.update_or_create(partido=partido, division=selected_division, manager=selected_manager, defaults={'posicionamiento': request.POST.get('posicionamiento'), 'pronostico_goles': request.POST.get('pronostico_goles')})
+                contact = ContactoManager.objects.filter(division=selected_division, manager=selected_manager).first()
+                if contact and contact.email:
+                    EmailMessage(subject=f'Voto confirmado — {partido.titulo}', body=f'Hola {selected_manager}. Tu voto para {partido.titulo} ha quedado registrado correctamente.', to=[contact.email]).send(fail_silently=True)
+                request.session.pop(f'vip_code_{partido.id}', None)
+                message = 'Voto guardado correctamente. Te hemos enviado una confirmación si tenemos tu correo.'
+    return render(request, 'vip_vote.html', {'partido': partido, 'league_managers': LEAGUE_MANAGERS, 'selected_division': selected_division, 'selected_manager': selected_manager, 'verification_sent': verification_sent, 'message': message})
 
 
 @login_required
@@ -200,7 +251,7 @@ def statistics_api(request, season, jornada):
         if record.jornada not in seen:
             records.append(record)
             seen.add(record.jornada)
-    totals = {}
+    totals, clause_links = {}, {}
     for record in records:
         for manager, values in record.datos.items():
             row = totals.setdefault(manager, {'manager': manager, 'app': 0, 'quinielas': 0, 'porras': 0, 'bonus': 0, 'money': 0, 'penalty': 0, 'total': 0})
@@ -217,8 +268,17 @@ def statistics_api(request, season, jornada):
             row['money'] += money
             row['penalty'] += penalty
             row['total'] += app + bonus - penalty
+            for clause in values.get('clauses', []):
+                if not isinstance(clause, dict):
+                    continue
+                target = clause.get('to', '').strip()
+                value = int(clause.get('value') or 0)
+                if target and value:
+                    link = clause_links.setdefault((manager, target), {'source': manager, 'target': target, 'count': 0, 'value': 0})
+                    link['count'] += 1
+                    link['value'] += value
     rows = list(totals.values())
-    return JsonResponse({'rows': rows, 'closed': bool(records and all(record.cerrada for record in records)), 'journeys': len(records)})
+    return JsonResponse({'rows': rows, 'clause_network': list(clause_links.values()), 'closed': bool(records and all(record.cerrada for record in records)), 'journeys': len(records)})
 
 
 class AppLoginView(LoginView):
