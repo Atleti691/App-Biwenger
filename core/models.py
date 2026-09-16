@@ -82,3 +82,38 @@ class ContactoManager(models.Model):
 
     def __str__(self):
         return f'{self.manager} — {self.division}'
+
+
+class PartidoVIP(models.Model):
+    titulo = models.CharField(max_length=140)
+    equipo_local = models.CharField(max_length=80)
+    equipo_visitante = models.CharField(max_length=80)
+    fecha_cierre = models.DateTimeField()
+    goles_reales = models.PositiveSmallIntegerField(null=True, blank=True)
+    cerrado = models.BooleanField(default=False)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def opcion_goles_real(self):
+        if self.goles_reales is None:
+            return ''
+        return '3+' if self.goles_reales >= 3 else str(self.goles_reales)
+
+    def __str__(self):
+        return self.titulo
+
+
+class VotoPartidoVIP(models.Model):
+    POSITION_CHOICES = [('local', 'Equipo local'), ('visitante', 'Equipo visitante'), ('ninguno', 'Ninguno')]
+    GOAL_CHOICES = [('0', '0 goles'), ('1', '1 gol'), ('2', '2 goles'), ('3+', '3 o más goles')]
+    partido = models.ForeignKey(PartidoVIP, on_delete=models.CASCADE, related_name='votos')
+    division = models.CharField(max_length=80)
+    manager = models.CharField(max_length=120)
+    posicionamiento = models.CharField(max_length=12, choices=POSITION_CHOICES)
+    pronostico_goles = models.CharField(max_length=2, choices=GOAL_CHOICES)
+    objetivo_penalizacion = models.CharField(max_length=120, blank=True)
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('partido', 'division', 'manager')

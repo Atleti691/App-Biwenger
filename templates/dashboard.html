@@ -128,4 +128,39 @@ document.getElementById('save-clauses').addEventListener('click',()=>setTimeout(
   if(response.ok)await refresh();
   setTimeout(()=>document.getElementById('saved').textContent='',2500);
 },0));
+</script><script>
+// Flujo de introducción: Enter baja por la misma columna.
+rows.addEventListener('keydown',event=>{
+  if(event.key!=='Enter'||!event.target.matches('.app,.q,.p'))return;
+  event.preventDefault();event.stopImmediatePropagation();
+  const inputs=[...rows.querySelectorAll('.'+event.target.className.split(' ')[0])];
+  const next=inputs[inputs.indexOf(event.target)+1];
+  if(next){next.focus();next.select()}
+},true);
+
+// Un campo vacío significa "no realizada"; cero sigue significando cero aciertos.
+const drawWithParticipationState=draw;
+draw=function(data={}){
+  drawWithParticipationState(data);
+  rows.querySelectorAll('tr').forEach(row=>{
+    const saved=data[row.children[1].textContent]||{};
+    if(!Object.prototype.hasOwnProperty.call(saved,'q'))row.querySelector('.q').value='';
+    if(!Object.prototype.hasOwnProperty.call(saved,'p'))row.querySelector('.p').value='';
+  });
+};
+
+// Presentación legible de importes: 500000 se muestra como 500.000 €.
+function digits(value){return String(value||'').replace(/\D/g,'')}
+document.getElementById('clause-modal').addEventListener('focusin',event=>{
+  if(event.target.classList.contains('cl-value'))event.target.value=digits(event.target.value);
+});
+document.getElementById('clause-modal').addEventListener('focusout',event=>{
+  if(event.target.classList.contains('cl-value')){
+    const value=Number(digits(event.target.value));
+    event.target.type='text';event.target.inputMode='numeric';
+    event.target.value=value?value.toLocaleString('es-ES')+' €':'';
+  }
+});
+rows.addEventListener('click',event=>{if(event.target.classList.contains('clauses'))setTimeout(()=>document.querySelectorAll('.cl-value').forEach(input=>{input.type='text';input.inputMode='numeric';const value=Number(digits(input.value));input.value=value?value.toLocaleString('es-ES')+' €':''}),0)});
+document.getElementById('save-clauses').addEventListener('click',()=>document.querySelectorAll('.cl-value').forEach(input=>input.value=digits(input.value)),true);
 </script></body></html>

@@ -1,12 +1,13 @@
 from django.contrib.auth.views import LogoutView
 from django.urls import path
-from .views import AppLoginView, change_password, communications, contact_form, dashboard, home, jornada_api, matches_api, origins, public_home, setup_collaborators, statistics, statistics_api, tournaments, vip_matches
+from .views import AppLoginView, change_password, communications, contact_form, dashboard, home, jornada_api, matches_api, origins, public_home, setup_collaborators, statistics, statistics_api, tournaments, vip_matches, vip_vote
 
 urlpatterns = [
     path('', home, name='home'),
     path('publico/', public_home, name='public_home'),
     path('torneos/', tournaments, name='tournaments'),
     path('partidos-vip/', vip_matches, name='vip_matches'),
+    path('partidos-vip/votar/<int:partido_id>/', vip_vote, name='vip_vote'),
     path('procedencia/', origins, name='origins'),
     path('comunicaciones/', communications, name='communications'),
     path('actualizar-contacto/', contact_form, name='contact_form'),

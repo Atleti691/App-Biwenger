@@ -8,10 +8,10 @@ from django.contrib.auth.views import LoginView
 from django.core.mail import EmailMessage
 from django.db.models import Q
 from django.http import JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from .forms import FirstPasswordChangeForm, LoginForm
-from .models import CambioRegistro, ContactoManager, JornadaRegistro, UserAccess
+from .models import CambioRegistro, ContactoManager, JornadaRegistro, PartidoVIP, UserAccess, VotoPartidoVIP
 from .services.openligadb import get_matches
 
 EDIT_DIVISIONS = {
@@ -74,7 +74,72 @@ def communications(request):
 
 @login_required
 def vip_matches(request):
-    return render(request, 'vip_matches.html')
+    access, _ = UserAccess.objects.get_or_create(user=request.user)
+    is_admin = request.user.username == 'Atleti69' or access.role == 'admin'
+    message = ''
+    if request.method == 'POST' and is_admin:
+        action = request.POST.get('action')
+        if action == 'create':
+            try:
+                PartidoVIP.objects.create(
+                    titulo=request.POST.get('titulo', '').strip(),
+                    equipo_local=request.POST.get('equipo_local', '').strip(),
+                    equipo_visitante=request.POST.get('equipo_visitante', '').strip(),
+                    fecha_cierre=timezone.make_aware(__import__('datetime').datetime.fromisoformat(request.POST['fecha_cierre'])),
+                )
+                message = 'Partido VIP creado.'
+            except (ValueError, KeyError):
+                message = 'Revisa los datos y la fecha del partido.'
+        elif action == 'close':
+            partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'))
+            partido.goles_reales = max(0, int(request.POST.get('goles_reales', 0)))
+            partido.cerrado = True
+            partido.save(update_fields=['goles_reales', 'cerrado'])
+            message = 'Partido cerrado y resultados calculados.'
+        elif action == 'remind':
+            partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'))
+            voted = set(partido.votos.values_list('division', 'manager'))
+            recipients = [c.email for c in ContactoManager.objects.exclude(email='') if (c.division, c.manager) not in voted]
+            if recipients:
+                EmailMessage(subject=f'Recordatorio — {partido.titulo}', body=f'Aún no has votado en {partido.titulo}. Participa aquí: {request.build_absolute_uri(f"/partidos-vip/votar/{partido.id}/")}', bcc=recipients).send(fail_silently=True)
+            message = f'Recordatorio enviado a {len(recipients)} usuarios pendientes.'
+    partidos = list(PartidoVIP.objects.prefetch_related('votos').order_by('-creado'))
+    manager_points = {}
+    for registro in JornadaRegistro.objects.all():
+        for manager, row in (registro.datos or {}).items():
+            total = int(row.get('app') or 0) + int(row.get('q') or 0) * 5 + int(row.get('p') or 0) * 10 - int(row.get('penalty') or 0)
+            manager_points[(registro.division, manager)] = manager_points.get((registro.division, manager), 0) + total
+    for partido in partidos:
+        partido.vote_url = request.build_absolute_uri(f'/partidos-vip/votar/{partido.id}/')
+        partido.participantes = partido.votos.count()
+        groups = {'local': [], 'visitante': []}
+        for vote in partido.votos.all():
+            if vote.posicionamiento in groups:
+                groups[vote.posicionamiento].append(manager_points.get((vote.division, vote.manager), 0))
+        partido.media_local = round(sum(groups['local']) / len(groups['local']), 2) if groups['local'] else None
+        partido.media_visitante = round(sum(groups['visitante']) / len(groups['visitante']), 2) if groups['visitante'] else None
+        partido.ganador_posicionamiento = ''
+        if partido.media_local is not None and partido.media_visitante is not None and partido.media_local != partido.media_visitante:
+            partido.ganador_posicionamiento = 'local' if partido.media_local > partido.media_visitante else 'visitante'
+        partido.acertantes_goles = [v for v in partido.votos.all() if partido.cerrado and v.pronostico_goles == partido.opcion_goles_real]
+    return render(request, 'vip_matches.html', {'partidos': partidos, 'is_admin': is_admin, 'message': message, 'divisions': LEAGUE_MANAGERS.keys()})
+
+
+def vip_vote(request, partido_id):
+    partido = get_object_or_404(PartidoVIP, pk=partido_id)
+    message = ''
+    selected_division = request.POST.get('division', '')
+    if request.method == 'POST' and not partido.cerrado and timezone.now() <= partido.fecha_cierre:
+        manager = request.POST.get('manager', '')
+        if manager in LEAGUE_MANAGERS.get(selected_division, []):
+            VotoPartidoVIP.objects.update_or_create(partido=partido, division=selected_division, manager=manager, defaults={'posicionamiento': request.POST.get('posicionamiento'), 'pronostico_goles': request.POST.get('pronostico_goles')})
+            contact = ContactoManager.objects.filter(division=selected_division, manager=manager).first()
+            if contact and contact.email:
+                EmailMessage(subject=f'Voto confirmado — {partido.titulo}', body=f'Hola {manager}. Tu voto para {partido.titulo} ha quedado registrado correctamente.', to=[contact.email]).send(fail_silently=True)
+            message = 'Voto guardado correctamente. Te hemos enviado una confirmación si tenemos tu correo.'
+        else:
+            message = 'Selecciona una división y un manager válidos.'
+    return render(request, 'vip_vote.html', {'partido': partido, 'league_managers': LEAGUE_MANAGERS, 'selected_division': selected_division, 'message': message})
 
 
 @login_required
