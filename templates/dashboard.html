@@ -117,4 +117,15 @@ const sortableColumns={2:'app',3:'q',4:'p',5:'bonus',6:'gross',8:'money',9:'pena
 refresh();
 </script><script>
 const postponedJourneys=new Map([[101,1],[106,6]]),refreshBeforePostponed=refresh;function addPostponedJourney(internalNumber,displayNumber){if([...jornada.options].some(option=>option.value==='Jornada '+internalNumber))return;let normal=[...jornada.options].find(option=>option.value==='Jornada '+displayNumber),option=new Option('Jornada '+displayNumber+' — AP','Jornada '+internalNumber);normal?.insertAdjacentElement('afterend',option)}function markPostponedJourneys(){postponedJourneys.forEach((displayNumber,internalNumber)=>{let option=[...jornada.options].find(item=>item.value==='Jornada '+internalNumber);if(option)option.textContent='Jornada '+displayNumber+' — AP'})}postponedJourneys.forEach((displayNumber,internalNumber)=>addPostponedJourney(internalNumber,displayNumber));refresh=async function(){await refreshBeforePostponed();markPostponedJourneys()};markPostponedJourneys();refresh();
+</script><script>
+document.getElementById('save-clauses').addEventListener('click',()=>setTimeout(async()=>{
+  const n=(jornada.value.match(/\d+/)||[1])[0];
+  const response=await fetch('/api/jornada/2026/'+n+'/',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({division:division.value,datos:rowData(),cerrada:remoteClosed})
+  });
+  document.getElementById('saved').textContent=response.ok?'Cláusulas guardadas online':'Error al guardar las cláusulas';
+  if(response.ok)await refresh();
+  setTimeout(()=>document.getElementById('saved').textContent='',2500);
+},0));
 </script></body></html>
