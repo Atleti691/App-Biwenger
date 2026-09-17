@@ -122,8 +122,17 @@ def vip_matches(request):
             voted = set(partido.votos.values_list('division', 'manager'))
             recipients = [c.email for c in ContactoManager.objects.exclude(email='') if (c.division, c.manager) not in voted]
             if recipients:
-                EmailMessage(subject=f'Recordatorio — {partido.titulo}', body=f'Aún no has votado en {partido.titulo}. Participa aquí: {request.build_absolute_uri(f"/partidos-vip/votar/{partido.id}/")}', bcc=recipients).send(fail_silently=True)
-            message = f'Recordatorio enviado a {len(recipients)} usuarios pendientes.'
+                try:
+                    sent_count = EmailMessage(subject=f'Recordatorio — {partido.titulo}', body=f'Aún no has votado en {partido.titulo}. Participa aquí: {request.build_absolute_uri(f"/partidos-vip/votar/{partido.id}/")}', bcc=recipients).send(fail_silently=False)
+                except Exception:
+                    logger.exception('No se pudo enviar el recordatorio VIP de %s', partido.titulo)
+                    sent_count = 0
+                if sent_count:
+                    message = f'Recordatorio aceptado por Brevo para {len(recipients)} usuarios pendientes.'
+                else:
+                    message = 'No se pudo enviar el recordatorio. Revisa los registros de Render y vuelve a intentarlo.'
+            else:
+                message = 'No hay usuarios pendientes con correo registrado.'
     partidos = list(PartidoVIP.objects.prefetch_related('votos').order_by('-creado'))
     manager_points = {}
     for registro in JornadaRegistro.objects.all():

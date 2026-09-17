@@ -47,7 +47,7 @@
 <strong>{{ partido.participantes }}</strong> votos · Cierre: {{ partido.fecha_cierre|date:"d/m/Y H:i" }}</p>
 <p class="share">{{ partido.vote_url }}</p>
 <div class="actions">
-<a class="button" href="{{ partido.vote_url }}">Abrir votación</a>{% for division in divisions %}<a class="button secondary" target="_blank" href="https://wa.me/?text={{ division|add:' — '|add:partido.titulo|add:' — Vota aquí: '|add:partido.vote_url|urlencode }}">WhatsApp · {{ division }}</a>{% endfor %}</div>{% if is_admin %}<details class="status">
+<a class="button" href="{{ partido.vote_url }}">Abrir votación</a><a class="button secondary" target="_blank" href="https://wa.me/?text={{ partido.titulo|add:' — '|add:partido.equipo_local|add:' vs '|add:partido.equipo_visitante|add:' — Vota aquí: '|add:partido.vote_url|urlencode }}">Compartir enlace por WhatsApp</a></div>{% if is_admin %}<details class="status">
 <summary>📋 Seguimiento por división</summary>{% for estado in partido.estado_divisiones %}<h4>{{ estado.division }}</h4>
 <div class="voted">
 <strong>✅ Votados ({{ estado.votados|length }}):</strong>
