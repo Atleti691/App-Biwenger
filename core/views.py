@@ -1,6 +1,7 @@
 from datetime import timedelta
 import secrets
 import unicodedata
+import logging
 
 from django.contrib.auth import get_user_model, login, logout
 from django.views.decorators.csrf import csrf_exempt
@@ -14,6 +15,8 @@ from django.utils import timezone
 from .forms import FirstPasswordChangeForm, LoginForm
 from .models import CambioRegistro, ContactoManager, JornadaRegistro, PartidoVIP, UserAccess, VotoPartidoVIP
 from .services.openligadb import get_matches, get_preferred_team_logo, get_team_logo
+
+logger = logging.getLogger(__name__)
 
 EDIT_DIVISIONS = {
     'Atleti69': {'*'},
@@ -205,7 +208,11 @@ def vip_vote(request, partido_id):
             message = 'Introduce el código que recibiste para confirmar tu voto.'
         elif action == 'send_code' and contact and contact.email.lower() == request.POST.get('email', '').strip().lower():
             code = f'{secrets.randbelow(1000000):06d}'
-            sent_count = EmailMessage(subject=f'Código de votación — {partido.titulo}', body=f'Tu código para votar es {code}. Caduca en 15 minutos.', to=[contact.email]).send(fail_silently=True)
+            try:
+                sent_count = EmailMessage(subject=f'Código de votación — {partido.titulo}', body=f'Tu código para votar es {code}. Caduca en 15 minutos.', to=[contact.email]).send(fail_silently=False)
+            except Exception:
+                logger.exception('No se pudo enviar el código VIP a %s (%s)', selected_manager, selected_division)
+                sent_count = 0
             if sent_count:
                 request.session[f'vip_code_{partido.id}'] = {'division': selected_division, 'manager': selected_manager, 'code': code, 'expires': (timezone.now() + timedelta(minutes=15)).isoformat()}
                 verification_sent = True
