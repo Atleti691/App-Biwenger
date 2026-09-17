@@ -92,10 +92,11 @@ def communications(request):
 def vip_matches(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
     is_admin = request.user.username == 'Atleti69' or access.role == 'admin'
+    can_create_vip = is_admin or access.role == 'collaborator'
     message = ''
-    if request.method == 'POST' and is_admin:
+    if request.method == 'POST':
         action = request.POST.get('action')
-        if action == 'create':
+        if action == 'create' and can_create_vip:
             try:
                 local = request.POST.get('equipo_local', '').strip()
                 visitante = request.POST.get('equipo_visitante', '').strip()
@@ -110,13 +111,13 @@ def vip_matches(request):
                 message = 'Partido VIP creado.'
             except (ValueError, KeyError):
                 message = 'Revisa los datos y la fecha del partido.'
-        elif action == 'close':
+        elif action == 'close' and is_admin:
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'))
             partido.goles_reales = max(0, int(request.POST.get('goles_reales', 0)))
             partido.cerrado = True
             partido.save(update_fields=['goles_reales', 'cerrado'])
             message = 'Partido cerrado y resultados calculados.'
-        elif action == 'remind':
+        elif action == 'remind' and is_admin:
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'))
             voted = set(partido.votos.values_list('division', 'manager'))
             recipients = [c.email for c in ContactoManager.objects.exclude(email='') if (c.division, c.manager) not in voted]
@@ -171,7 +172,7 @@ def vip_matches(request):
         if partido.media_local is not None and partido.media_visitante is not None and partido.media_local != partido.media_visitante:
             partido.ganador_posicionamiento = 'local' if partido.media_local > partido.media_visitante else 'visitante'
         partido.acertantes_goles = [v for v in partido.votos.all() if partido.cerrado and v.pronostico_goles == partido.opcion_goles_real]
-    return render(request, 'vip_matches.html', {'partidos': partidos, 'is_admin': is_admin, 'message': message, 'divisions': LEAGUE_MANAGERS.keys()})
+    return render(request, 'vip_matches.html', {'partidos': partidos, 'is_admin': is_admin, 'can_create_vip': can_create_vip, 'message': message, 'divisions': LEAGUE_MANAGERS.keys()})
 
 
 def vip_vote(request, partido_id):
