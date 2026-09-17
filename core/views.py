@@ -13,7 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from .forms import FirstPasswordChangeForm, LoginForm
 from .models import CambioRegistro, ContactoManager, JornadaRegistro, PartidoVIP, UserAccess, VotoPartidoVIP
-from .services.openligadb import get_matches, get_team_logo
+from .services.openligadb import get_matches, get_preferred_team_logo, get_team_logo
 
 EDIT_DIVISIONS = {
     'Atleti69': {'*'},
@@ -128,10 +128,18 @@ def vip_matches(request):
             manager_points[(registro.division, manager)] = manager_points.get((registro.division, manager), 0) + total
     for partido in partidos:
         logo_fields = []
-        if not partido.escudo_local:
+        preferred_local = get_preferred_team_logo(partido.equipo_local)
+        preferred_visitante = get_preferred_team_logo(partido.equipo_visitante)
+        if preferred_local and partido.escudo_local != preferred_local:
+            partido.escudo_local = preferred_local
+            logo_fields.append('escudo_local')
+        elif not partido.escudo_local:
             partido.escudo_local = get_team_logo(partido.equipo_local)
             logo_fields.append('escudo_local')
-        if not partido.escudo_visitante:
+        if preferred_visitante and partido.escudo_visitante != preferred_visitante:
+            partido.escudo_visitante = preferred_visitante
+            logo_fields.append('escudo_visitante')
+        elif not partido.escudo_visitante:
             partido.escudo_visitante = get_team_logo(partido.equipo_visitante)
             logo_fields.append('escudo_visitante')
         if logo_fields and (partido.escudo_local or partido.escudo_visitante):
@@ -166,10 +174,18 @@ def vip_matches(request):
 def vip_vote(request, partido_id):
     partido = get_object_or_404(PartidoVIP, pk=partido_id)
     logo_fields = []
-    if not partido.escudo_local:
+    preferred_local = get_preferred_team_logo(partido.equipo_local)
+    preferred_visitante = get_preferred_team_logo(partido.equipo_visitante)
+    if preferred_local and partido.escudo_local != preferred_local:
+        partido.escudo_local = preferred_local
+        logo_fields.append('escudo_local')
+    elif not partido.escudo_local:
         partido.escudo_local = get_team_logo(partido.equipo_local)
         logo_fields.append('escudo_local')
-    if not partido.escudo_visitante:
+    if preferred_visitante and partido.escudo_visitante != preferred_visitante:
+        partido.escudo_visitante = preferred_visitante
+        logo_fields.append('escudo_visitante')
+    elif not partido.escudo_visitante:
         partido.escudo_visitante = get_team_logo(partido.equipo_visitante)
         logo_fields.append('escudo_visitante')
     if logo_fields and (partido.escudo_local or partido.escudo_visitante):
