@@ -1,11 +1,106 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Votar · {{ partido.titulo }}</title><style>*{box-sizing:border-box}body{margin:0;padding:18px;background:linear-gradient(135deg,#fff1d8,#efe6ff);font:15px Arial;color:#172033}.card{max-width:650px;margin:3vh auto;background:#fff;border-radius:22px;padding:26px;box-shadow:0 15px 40px #34190622}.back{display:inline-block;background:#6246a8;color:#fff;text-decoration:none;padding:9px 12px;border-radius:9px}h1{text-align:center;color:#a13e08}.teams{display:flex;align-items:center;justify-content:center;gap:14px;text-align:center;font-size:22px;font-weight:800}.crest{width:72px;height:72px;object-fit:contain}.versus{color:#e16518}label{display:block;margin:15px 0 6px;font-weight:700}select,input,button{width:100%;padding:12px;border:1px solid #d9c9bc;border-radius:10px;font:inherit}button{margin-top:20px;border:0;background:#dc6419;color:#fff;font-weight:800}.options{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.options label{background:#fff3e8;border:1px solid #efc9aa;border-radius:10px;padding:12px;text-align:center}.message{background:#e5f7eb;color:#176b3a;padding:11px;border-radius:9px}.identity{background:#f5f1ff;padding:12px;border-radius:10px}.strategy{margin:18px 0;background:#f5f1ff;border-radius:12px;padding:12px}.strategy summary{cursor:pointer;background:#6246a8;color:#fff;padding:11px;border-radius:9px;font-weight:800;list-style:none;text-align:center}.strategy summary::-webkit-details-marker{display:none}.strategy-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.strategy-team{background:#fff;border-radius:10px;padding:10px;text-align:center}.strategy-team ul{padding-left:18px;text-align:left;font-size:12px}.skip-results{display:block;text-align:center;margin:-8px 0 16px;color:#6246a8;font-weight:700}@media(max-width:600px){.options,.strategy-grid{grid-template-columns:1fr}.teams{font-size:17px}.crest{width:55px;height:55px}}</style></head>
-<body><main class="card"><a class="back" href="{% url 'home' %}">← Menú principal</a><h1>⭐ {{ partido.titulo }}</h1><div class="teams">{% if partido.escudo_local %}<img class="crest" src="{{ partido.escudo_local }}" alt="Escudo {{ partido.equipo_local }}">{% endif %}<span>{{ partido.equipo_local }}</span><span class="versus">VS</span><span>{{ partido.equipo_visitante }}</span>{% if partido.escudo_visitante %}<img class="crest" src="{{ partido.escudo_visitante }}" alt="Escudo {{ partido.equipo_visitante }}">{% endif %}</div><details class="strategy"><summary>👀 Ver posicionamientos actuales ({{ position_total }})</summary><p>Resultados provisionales. Los pronósticos de goles permanecen ocultos.</p><div class="strategy-grid"><div class="strategy-team"><strong>{{ partido.equipo_local }}</strong><p>{{ position_summary.local.count }} · {{ position_summary.local.percentage }}%</p><ul>{% for voto in position_summary.local.votes %}<li>{{ voto.manager }} <small>({{ voto.division }})</small></li>{% empty %}<li>Nadie todavía</li>{% endfor %}</ul></div><div class="strategy-team"><strong>{{ partido.equipo_visitante }}</strong><p>{{ position_summary.visitante.count }} · {{ position_summary.visitante.percentage }}%</p><ul>{% for voto in position_summary.visitante.votes %}<li>{{ voto.manager }} <small>({{ voto.division }})</small></li>{% empty %}<li>Nadie todavía</li>{% endfor %}</ul></div><div class="strategy-team"><strong>Ninguno</strong><p>{{ position_summary.ninguno.count }} · {{ position_summary.ninguno.percentage }}%</p><ul>{% for voto in position_summary.ninguno.votes %}<li>{{ voto.manager }} <small>({{ voto.division }})</small></li>{% empty %}<li>Nadie todavía</li>{% endfor %}</ul></div></div></details><a class="skip-results" href="#vote-form">Continuar sin ver los posicionamientos</a>
-<div id="vote-form"></div>{% if message %}<p class="message">{{ message }}</p>{% endif %}
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Votar · {{ partido.titulo }}</title>
+<style>*{box-sizing:border-box}body{margin:0;padding:18px;background:linear-gradient(135deg,#fff1d8,#efe6ff);font:15px Arial;color:#172033}.card{max-width:650px;margin:3vh auto;background:#fff;border-radius:22px;padding:26px;box-shadow:0 15px 40px #34190622}.back{display:inline-block;background:#6246a8;color:#fff;text-decoration:none;padding:9px 12px;border-radius:9px}h1{text-align:center;color:#a13e08}.teams{display:flex;align-items:center;justify-content:center;gap:14px;text-align:center;font-size:22px;font-weight:800}.crest{width:72px;height:72px;object-fit:contain}.versus{color:#e16518}label{display:block;margin:15px 0 6px;font-weight:700}select,input,button{width:100%;padding:12px;border:1px solid #d9c9bc;border-radius:10px;font:inherit}button{margin-top:20px;border:0;background:#dc6419;color:#fff;font-weight:800}.options{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.options label{background:#fff3e8;border:1px solid #efc9aa;border-radius:10px;padding:12px;text-align:center}.message{background:#e5f7eb;color:#176b3a;padding:11px;border-radius:9px}.identity{background:#f5f1ff;padding:12px;border-radius:10px}.strategy{margin:18px 0;background:#f5f1ff;border-radius:12px;padding:12px}.strategy summary{cursor:pointer;background:#6246a8;color:#fff;padding:11px;border-radius:9px;font-weight:800;list-style:none;text-align:center}.strategy summary::-webkit-details-marker{display:none}.strategy-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.strategy-team{background:#fff;border-radius:10px;padding:10px;text-align:center}.strategy-team ul{padding-left:18px;text-align:left;font-size:12px}.skip-results{display:block;text-align:center;margin:-8px 0 16px;color:#6246a8;font-weight:700}@media(max-width:600px){.options,.strategy-grid{grid-template-columns:1fr}.teams{font-size:17px}.crest{width:55px;height:55px}}</style>
+</head>
+<body>
+<main class="card">
+<a class="back" href="{% url 'home' %}">← Menú principal</a>
+<h1>⭐ {{ partido.titulo }}</h1>
+<div class="teams">{% if partido.escudo_local %}<img class="crest" src="{{ partido.escudo_local }}" alt="Escudo {{ partido.equipo_local }}">{% endif %}<span>{{ partido.equipo_local }}</span>
+<span class="versus">VS</span>
+<span>{{ partido.equipo_visitante }}</span>{% if partido.escudo_visitante %}<img class="crest" src="{{ partido.escudo_visitante }}" alt="Escudo {{ partido.equipo_visitante }}">{% endif %}</div>
+<details class="strategy">
+<summary>👀 Ver posicionamientos actuales (<span id="strategy-total">0</span>)</summary>
+<p id="strategy-hint">Selecciona tu división para consultar sus posicionamientos. Los pronósticos de goles permanecen ocultos.</p>
+<div class="strategy-grid">
+<div class="strategy-team">
+<strong>{{ partido.equipo_local }}</strong>
+<p><span id="strategy-local-count">0</span> · <span id="strategy-local-percentage">0</span>%</p>
+<ul id="strategy-local-list"><li>Nadie todavía</li></ul>
+</div>
+<div class="strategy-team">
+<strong>{{ partido.equipo_visitante }}</strong>
+<p><span id="strategy-visitante-count">0</span> · <span id="strategy-visitante-percentage">0</span>%</p>
+<ul id="strategy-visitante-list"><li>Nadie todavía</li></ul>
+</div>
+<div class="strategy-team">
+<strong>Ninguno</strong>
+<p><span id="strategy-ninguno-count">0</span> · <span id="strategy-ninguno-percentage">0</span>%</p>
+<ul id="strategy-ninguno-list"><li>Nadie todavía</li></ul>
+</div>
+</div>
+</details>
+<a class="skip-results" href="#vote-form">Continuar sin ver los posicionamientos</a>
+<div id="vote-form">
+</div>{% if message %}<p class="message">{{ message }}</p>{% endif %}
 {% if partido.cerrado %}<p>La votación está cerrada.</p>
 {% elif verification_sent %}
-{% if existing_vote %}<p class="identity"><strong>⚠️ Ya habías votado.</strong><br>Puedes modificar tu elección mientras la votación siga abierta. Tu último voto fue actualizado el {{ existing_vote.actualizado|date:"d/m/Y H:i" }}.</p>{% endif %}
-<form method="post">{% csrf_token %}<input type="hidden" name="action" value="vote"><input type="hidden" name="division" value="{{ selected_division }}"><input type="hidden" name="manager" value="{{ selected_manager }}"><p class="identity"><strong>{{ selected_manager }}</strong><br>{{ selected_division }}</p><label>Código recibido por correo</label><input name="code" inputmode="numeric" maxlength="6" required><label>¿Con quién te posicionas?</label><div class="options"><label><input type="radio" name="posicionamiento" value="local" {% if existing_vote.posicionamiento == 'local' %}checked{% endif %} required> {{ partido.equipo_local }}</label><label><input type="radio" name="posicionamiento" value="visitante" {% if existing_vote.posicionamiento == 'visitante' %}checked{% endif %}> {{ partido.equipo_visitante }}</label><label><input type="radio" name="posicionamiento" value="ninguno" {% if existing_vote.posicionamiento == 'ninguno' %}checked{% endif %}> Ninguno</label></div><label>¿Cuántos goles habrá en total?</label><select name="pronostico_goles" required><option value="0" {% if existing_vote.pronostico_goles == '0' %}selected{% endif %}>0 goles</option><option value="1" {% if existing_vote.pronostico_goles == '1' %}selected{% endif %}>1 gol</option><option value="2" {% if existing_vote.pronostico_goles == '2' %}selected{% endif %}>2 goles</option><option value="3+" {% if existing_vote.pronostico_goles == '3+' %}selected{% endif %}>3 o más goles</option></select><button>{% if existing_vote %}Actualizar mi voto{% else %}Confirmar mi voto{% endif %}</button></form>
+{% if existing_vote %}<p class="identity">
+<strong>⚠️ Ya habías votado.</strong>
+<br>Puedes modificar tu elección mientras la votación siga abierta. Tu último voto fue actualizado el {{ existing_vote.actualizado|date:"d/m/Y H:i" }}.</p>{% endif %}
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="vote">
+<input type="hidden" name="division" value="{{ selected_division }}">
+<input type="hidden" name="manager" value="{{ selected_manager }}">
+<p class="identity">
+<strong>{{ selected_manager }}</strong>
+<br>{{ selected_division }}</p>
+<label>Código recibido por correo</label>
+<input name="code" inputmode="numeric" maxlength="6" required>
+<label>¿Con quién te posicionas?</label>
+<div class="options">
+<label>
+<input type="radio" name="posicionamiento" value="local" {% if existing_vote.posicionamiento == 'local' %}checked{% endif %} required> {{ partido.equipo_local }}</label>
+<label>
+<input type="radio" name="posicionamiento" value="visitante" {% if existing_vote.posicionamiento == 'visitante' %}checked{% endif %}> {{ partido.equipo_visitante }}</label>
+<label>
+<input type="radio" name="posicionamiento" value="ninguno" {% if existing_vote.posicionamiento == 'ninguno' %}checked{% endif %}> Ninguno</label>
+</div>
+<label>¿Cuántos goles habrá en total?</label>
+<select name="pronostico_goles" required>
+<option value="0" {% if existing_vote.pronostico_goles == '0' %}selected{% endif %}>0 goles</option>
+<option value="1" {% if existing_vote.pronostico_goles == '1' %}selected{% endif %}>1 gol</option>
+<option value="2" {% if existing_vote.pronostico_goles == '2' %}selected{% endif %}>2 goles</option>
+<option value="3+" {% if existing_vote.pronostico_goles == '3+' %}selected{% endif %}>3 o más goles</option>
+</select>
+<button>{% if existing_vote %}Actualizar mi voto{% else %}Confirmar mi voto{% endif %}</button>
+</form>
 {% else %}
-<form method="post">{% csrf_token %}<label>División</label><select id="division" name="division" required><option value="">Selecciona</option>{% for division, managers in league_managers.items %}<option {% if division == selected_division %}selected{% endif %}>{{ division }}</option>{% endfor %}</select><label>Manager</label><select id="manager" name="manager" required></select><label>Tu correo registrado</label><input name="email" type="email"><button name="action" value="send_code">Enviarme código para votar</button><button name="action" value="show_vote" style="background:#6246a8">Ya he recibido mi código</button></form>
+<form method="post">{% csrf_token %}<label>División</label>
+<select id="division" name="division" required>
+<option value="">Selecciona</option>{% for division, managers in league_managers.items %}<option {% if division == selected_division %}selected{% endif %}>{{ division }}</option>{% endfor %}</select>
+<label>Manager</label>
+<select id="manager" name="manager" required>
+</select>
+<label>Tu correo registrado</label>
+<input name="email" type="email">
+<button name="action" value="send_code">Enviarme código para votar</button>
+<button name="action" value="show_vote" style="background:#6246a8">Ya he recibido mi código</button>
+</form>
 {% endif %}
-{{ league_managers|json_script:"managers-data" }}</main><script>const data=JSON.parse(document.getElementById('managers-data').textContent),division=document.getElementById('division'),manager=document.getElementById('manager'),selected='{{ selected_manager|escapejs }}';function load(){if(!manager)return;manager.innerHTML='<option value="">Selecciona tu manager</option>'+(data[division.value]||[]).map(x=>'<option '+(x===selected?'selected':'')+'>'+x+'</option>').join('')}if(division){division.onchange=load;load()}</script></body></html>
+{{ league_managers|json_script:"managers-data" }}
+{{ position_votes|json_script:"position-votes-data" }}</main>
+<script>
+const data=JSON.parse(document.getElementById('managers-data').textContent),positionVotes=JSON.parse(document.getElementById('position-votes-data').textContent),division=document.getElementById('division'),manager=document.getElementById('manager'),selected='{{ selected_manager|escapejs }}',fixedDivision='{{ selected_division|escapejs }}';
+function load(){if(!manager)return;manager.innerHTML='<option value="">Selecciona tu manager</option>'+(data[division.value]||[]).map(x=>'<option '+(x===selected?'selected':'')+'>'+x+'</option>').join('')}
+function renderStrategy(){
+ const currentDivision=division?division.value:fixedDivision;
+ const groups={local:[],visitante:[],ninguno:[]};
+ Object.keys(groups).forEach(key=>groups[key]=(positionVotes[key]||[]).filter(v=>v.division===currentDivision));
+ const total=Object.values(groups).reduce((sum,votes)=>sum+votes.length,0);
+ document.getElementById('strategy-total').textContent=total;
+ document.getElementById('strategy-hint').textContent=currentDivision?'Posicionamientos provisionales de '+currentDivision+'. Los pronósticos de goles permanecen ocultos.':'Selecciona tu división para consultar sus posicionamientos. Los pronósticos de goles permanecen ocultos.';
+ Object.entries(groups).forEach(([key,votes])=>{
+  document.getElementById('strategy-'+key+'-count').textContent=votes.length;
+  document.getElementById('strategy-'+key+'-percentage').textContent=total?Math.round(votes.length*1000/total)/10:0;
+  document.getElementById('strategy-'+key+'-list').innerHTML=votes.length?votes.map(v=>'<li>'+escapeHtml(v.manager)+'</li>').join(''):'<li>Nadie todavía</li>';
+ });
+}
+function escapeHtml(value){const element=document.createElement('div');element.textContent=value;return element.innerHTML}
+if(division){division.onchange=()=>{load();renderStrategy()};load()}renderStrategy();
+</script>
+</body>
+</html>
