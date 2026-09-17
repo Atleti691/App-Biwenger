@@ -51,7 +51,7 @@
 <summary>📋 Seguimiento por división</summary>{% for estado in partido.estado_divisiones %}<h4>{{ estado.division }}</h4>
 <div class="voted">
 <strong>✅ Votados ({{ estado.votados|length }}):</strong>
-<ul>{% for voto in estado.votados %}<li>{{ voto.manager }} · {{ voto.actualizado|date:"d/m H:i" }}</li>{% empty %}<li>Ninguno</li>{% endfor %}</ul>
+<ul>{% for voto in estado.votados %}<li><strong>{{ voto.manager }}</strong> · Posicionamiento: {% if voto.posicionamiento == 'local' %}{{ partido.equipo_local }}{% elif voto.posicionamiento == 'visitante' %}{{ partido.equipo_visitante }}{% else %}Ninguno{% endif %} · Goles: {{ voto.get_pronostico_goles_display }} · {{ voto.actualizado|date:"d/m H:i" }}</li>{% empty %}<li>Ninguno</li>{% endfor %}</ul>
 </div>
 <div class="pending">
 <strong>⏳ Pendientes ({{ estado.pendientes|length }}):</strong> {{ estado.pendientes|join:", "|default:"Ninguno" }}</div>{% endfor %}</details>{% endif %}{% if is_admin and not partido.cerrado %}<div style="margin-top:14px;padding-top:12px;border-top:1px solid #efd8c4">
