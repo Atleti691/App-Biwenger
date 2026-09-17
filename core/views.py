@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model, login, logout
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMessage, get_connection
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -120,15 +120,22 @@ def vip_matches(request):
         elif action == 'remind' and is_admin:
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'))
             voted = set(partido.votos.values_list('division', 'manager'))
-            recipients = [c.email for c in ContactoManager.objects.exclude(email='') if (c.division, c.manager) not in voted]
+            pending_contacts = [c for c in ContactoManager.objects.exclude(email='') if (c.division, c.manager) not in voted]
+            recipients = list({contact.email.strip().lower(): contact.email.strip() for contact in pending_contacts}.values())
             if recipients:
                 try:
-                    sent_count = EmailMessage(subject=f'Recordatorio — {partido.titulo}', body=f'Aún no has votado en {partido.titulo}. Participa aquí: {request.build_absolute_uri(f"/partidos-vip/votar/{partido.id}/")}', bcc=recipients).send(fail_silently=False)
+                    connection = get_connection(fail_silently=False)
+                    vote_url = request.build_absolute_uri(f'/partidos-vip/votar/{partido.id}/')
+                    messages = [EmailMessage(subject=f'Recordatorio — {partido.titulo}', body=f'Aún no has votado en {partido.titulo}. Participa aquí: {vote_url}', to=[recipient], connection=connection) for recipient in recipients]
+                    sent_count = connection.send_messages(messages)
                 except Exception:
                     logger.exception('No se pudo enviar el recordatorio VIP de %s', partido.titulo)
                     sent_count = 0
-                if sent_count:
-                    message = f'Recordatorio aceptado por Brevo para {len(recipients)} usuarios pendientes.'
+                failed_count = len(recipients) - sent_count
+                if sent_count and not failed_count:
+                    message = f'Recordatorio enviado individualmente a {sent_count} usuarios pendientes.'
+                elif sent_count:
+                    message = f'Se enviaron {sent_count} recordatorios y fallaron {failed_count}. Revisa Brevo y los registros de Render.'
                 else:
                     message = 'No se pudo enviar el recordatorio. Revisa los registros de Render y vuelve a intentarlo.'
             else:
