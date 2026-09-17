@@ -47,28 +47,14 @@
 <strong>{{ partido.participantes }}</strong> votos · Cierre: {{ partido.fecha_cierre|date:"d/m/Y H:i" }}</p>
 <p class="share">{{ partido.vote_url }}</p>
 <div class="actions">
-<a class="button" href="{{ partido.vote_url }}">Abrir votación</a><a class="button secondary" target="_blank" href="https://wa.me/?text={{ partido.titulo|add:' — '|add:partido.equipo_local|add:' vs '|add:partido.equipo_visitante|add:' — Vota aquí: '|add:partido.vote_url|urlencode }}">Compartir enlace por WhatsApp</a></div>{% if is_admin %}<details class="status">
+<a class="button" href="{{ partido.vote_url }}">Abrir votación</a><a class="button secondary" target="_blank" href="https://wa.me/?text={{ partido.titulo|add:' — '|add:partido.equipo_local|add:' vs '|add:partido.equipo_visitante|add:' — Vota aquí: '|add:partido.vote_url|urlencode }}">Compartir enlace por WhatsApp</a></div>{% if is_admin and not partido.cerrado %}<div style="margin-top:14px;padding-top:12px;border-top:1px solid #efd8c4"><strong>📧 Votación abierta</strong><p style="margin:5px 0 8px">Envía un aviso únicamente a quienes todavía no han votado.</p><form method="post">{% csrf_token %}<input type="hidden" name="partido_id" value="{{ partido.id }}"><button name="action" value="remind" class="secondary">Recordar por correo a pendientes</button></form></div><div style="margin-top:14px;padding:12px;background:#fff3e8;border-radius:10px"><strong>🏁 Finalizar partido</strong><p style="margin:5px 0 8px">Introduce la suma de goles de ambos equipos. Ejemplo: un resultado 2-1 son 3 goles.</p><form method="post" class="actions" onsubmit="return confirm('¿Seguro que quieres cerrar la votación? Después ya no se podrá votar.')">{% csrf_token %}<input type="hidden" name="partido_id" value="{{ partido.id }}"><input name="goles_reales" type="number" min="0" placeholder="Goles totales reales" required style="width:190px;margin:0"><button name="action" value="close">Cerrar y calcular</button></form></div>{% endif %}{% if is_admin %}<details class="status">
 <summary>📋 Seguimiento por división</summary>{% for estado in partido.estado_divisiones %}<h4>{{ estado.division }}</h4>
 <div class="voted">
 <strong>✅ Votados ({{ estado.votados|length }}):</strong>
 <ul>{% for voto in estado.votados %}<li><strong>{{ voto.manager }}</strong> · Posicionamiento: {% if voto.posicionamiento == 'local' %}{{ partido.equipo_local }}{% elif voto.posicionamiento == 'visitante' %}{{ partido.equipo_visitante }}{% else %}Ninguno{% endif %} · Goles: {{ voto.get_pronostico_goles_display }} · {{ voto.actualizado|date:"d/m H:i" }}</li>{% empty %}<li>Ninguno</li>{% endfor %}</ul>
 </div>
 <div class="pending">
-<strong>⏳ Pendientes ({{ estado.pendientes|length }}):</strong> {{ estado.pendientes|join:", "|default:"Ninguno" }}</div>{% endfor %}</details>{% endif %}{% if is_admin and not partido.cerrado %}<div style="margin-top:14px;padding-top:12px;border-top:1px solid #efd8c4">
-<strong>📧 Votación abierta</strong>
-<p style="margin:5px 0 8px">Envía un aviso únicamente a quienes todavía no han votado.</p>
-<form method="post">{% csrf_token %}<input type="hidden" name="partido_id" value="{{ partido.id }}">
-<button name="action" value="remind" class="secondary">Recordar por correo a pendientes</button>
-</form>
-</div>
-<div style="margin-top:14px;padding:12px;background:#fff3e8;border-radius:10px">
-<strong>🏁 Finalizar partido</strong>
-<p style="margin:5px 0 8px">Introduce la suma de goles de ambos equipos. Ejemplo: un resultado 2-1 son 3 goles.</p>
-<form method="post" class="actions" onsubmit="return confirm('¿Seguro que quieres cerrar la votación? Después ya no se podrá votar.')">{% csrf_token %}<input type="hidden" name="partido_id" value="{{ partido.id }}">
-<input name="goles_reales" type="number" min="0" placeholder="Goles totales reales" required style="width:190px;margin:0">
-<button name="action" value="close">Cerrar y calcular</button>
-</form>
-</div>{% elif partido.cerrado %}<p>
+<strong>⏳ Pendientes ({{ estado.pendientes|length }}):</strong> {{ estado.pendientes|join:", "|default:"Ninguno" }}</div>{% endfor %}</details>{% endif %}{% if partido.cerrado %}<p>
 <strong>Finalizado:</strong> {{ partido.goles_reales }} goles.</p>
 <p>Media {{ partido.equipo_local }}: <strong>{{ partido.media_local|default:'—' }}</strong>
 <br>Media {{ partido.equipo_visitante }}: <strong>{{ partido.media_visitante|default:'—' }}</strong>

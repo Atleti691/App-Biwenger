@@ -193,6 +193,18 @@ def vip_matches(request):
 
 def vip_vote(request, partido_id):
     partido = get_object_or_404(PartidoVIP, pk=partido_id)
+    position_votes = {'local': [], 'visitante': [], 'ninguno': []}
+    for previous_vote in partido.votos.order_by('division', 'manager'):
+        position_votes.setdefault(previous_vote.posicionamiento, []).append({'manager': previous_vote.manager, 'division': previous_vote.division})
+    position_total = sum(len(votes) for votes in position_votes.values())
+    position_summary = {
+        key: {
+            'votes': votes,
+            'count': len(votes),
+            'percentage': round(len(votes) * 100 / position_total, 1) if position_total else 0,
+        }
+        for key, votes in position_votes.items()
+    }
     logo_fields = []
     preferred_local = get_preferred_team_logo(partido.equipo_local)
     preferred_visitante = get_preferred_team_logo(partido.equipo_visitante)
@@ -251,7 +263,7 @@ def vip_vote(request, partido_id):
                     EmailMessage(subject=f'Voto confirmado — {partido.titulo}', body=f'Hola {selected_manager}. Tu voto para {partido.titulo} ha quedado registrado correctamente.', to=[contact.email]).send(fail_silently=True)
                 request.session.pop(f'vip_code_{partido.id}', None)
                 message = ('Voto guardado correctamente.' if created else 'Tu voto anterior se ha actualizado correctamente.') + ' Te hemos enviado una confirmación si tenemos tu correo.'
-    return render(request, 'vip_vote.html', {'partido': partido, 'league_managers': LEAGUE_MANAGERS, 'selected_division': selected_division, 'selected_manager': selected_manager, 'verification_sent': verification_sent, 'message': message, 'existing_vote': existing_vote})
+    return render(request, 'vip_vote.html', {'partido': partido, 'league_managers': LEAGUE_MANAGERS, 'selected_division': selected_division, 'selected_manager': selected_manager, 'verification_sent': verification_sent, 'message': message, 'existing_vote': existing_vote, 'position_summary': position_summary, 'position_total': position_total})
 
 
 @login_required
