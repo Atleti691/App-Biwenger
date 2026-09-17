@@ -205,10 +205,13 @@ def vip_vote(request, partido_id):
             message = 'Introduce el código que recibiste para confirmar tu voto.'
         elif action == 'send_code' and contact and contact.email.lower() == request.POST.get('email', '').strip().lower():
             code = f'{secrets.randbelow(1000000):06d}'
-            request.session[f'vip_code_{partido.id}'] = {'division': selected_division, 'manager': selected_manager, 'code': code, 'expires': (timezone.now() + timedelta(minutes=15)).isoformat()}
-            EmailMessage(subject=f'Código de votación — {partido.titulo}', body=f'Tu código para votar es {code}. Caduca en 15 minutos.', to=[contact.email]).send(fail_silently=True)
-            verification_sent = True
-            message = 'Código enviado. Revisa tu correo e introdúcelo para votar.'
+            sent_count = EmailMessage(subject=f'Código de votación — {partido.titulo}', body=f'Tu código para votar es {code}. Caduca en 15 minutos.', to=[contact.email]).send(fail_silently=True)
+            if sent_count:
+                request.session[f'vip_code_{partido.id}'] = {'division': selected_division, 'manager': selected_manager, 'code': code, 'expires': (timezone.now() + timedelta(minutes=15)).isoformat()}
+                verification_sent = True
+                message = 'Código enviado correctamente. Revisa tu correo, el spam y la carpeta de promociones.'
+            else:
+                message = 'No se ha podido enviar el código. Inténtalo de nuevo dentro de unos segundos o avisa al administrador.'
         elif action == 'send_code':
             message = 'El correo no coincide con el registrado para ese manager.'
         elif action == 'vote':
