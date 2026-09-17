@@ -138,6 +138,18 @@ def vip_matches(request):
             partido.save(update_fields=logo_fields)
         partido.vote_url = request.build_absolute_uri(f'/partidos-vip/votar/{partido.id}/')
         partido.participantes = partido.votos.count()
+        if is_admin:
+            voted_by_division = {}
+            for vote in partido.votos.all():
+                voted_by_division.setdefault(vote.division, {})[vote.manager] = vote
+            partido.estado_divisiones = [
+                {
+                    'division': division,
+                    'votados': [voted_by_division.get(division, {}).get(manager) for manager in managers if manager in voted_by_division.get(division, {})],
+                    'pendientes': [manager for manager in managers if manager not in voted_by_division.get(division, {})],
+                }
+                for division, managers in LEAGUE_MANAGERS.items()
+            ]
         groups = {'local': [], 'visitante': []}
         for vote in partido.votos.all():
             if vote.posicionamiento in groups:
@@ -166,9 +178,12 @@ def vip_vote(request, partido_id):
     selected_division = request.POST.get('division', '')
     verification_sent = False
     selected_manager = request.POST.get('manager', '')
+    existing_vote = None
     if request.method == 'POST' and not partido.cerrado and timezone.now() <= partido.fecha_cierre:
         action = request.POST.get('action')
         contact = ContactoManager.objects.filter(division=selected_division, manager=selected_manager).first()
+        if selected_division and selected_manager:
+            existing_vote = VotoPartidoVIP.objects.filter(partido=partido, division=selected_division, manager=selected_manager).first()
         if action == 'show_vote':
             verification_sent = True
             message = 'Introduce el código que recibiste para confirmar tu voto.'
@@ -187,13 +202,13 @@ def vip_vote(request, partido_id):
                 message = 'El código no es correcto o ha caducado. Solicita uno nuevo.'
                 verification_sent = True
             elif selected_manager in LEAGUE_MANAGERS.get(selected_division, []):
-                VotoPartidoVIP.objects.update_or_create(partido=partido, division=selected_division, manager=selected_manager, defaults={'posicionamiento': request.POST.get('posicionamiento'), 'pronostico_goles': request.POST.get('pronostico_goles')})
+                existing_vote, created = VotoPartidoVIP.objects.update_or_create(partido=partido, division=selected_division, manager=selected_manager, defaults={'posicionamiento': request.POST.get('posicionamiento'), 'pronostico_goles': request.POST.get('pronostico_goles')})
                 contact = ContactoManager.objects.filter(division=selected_division, manager=selected_manager).first()
                 if contact and contact.email:
                     EmailMessage(subject=f'Voto confirmado — {partido.titulo}', body=f'Hola {selected_manager}. Tu voto para {partido.titulo} ha quedado registrado correctamente.', to=[contact.email]).send(fail_silently=True)
                 request.session.pop(f'vip_code_{partido.id}', None)
-                message = 'Voto guardado correctamente. Te hemos enviado una confirmación si tenemos tu correo.'
-    return render(request, 'vip_vote.html', {'partido': partido, 'league_managers': LEAGUE_MANAGERS, 'selected_division': selected_division, 'selected_manager': selected_manager, 'verification_sent': verification_sent, 'message': message})
+                message = ('Voto guardado correctamente.' if created else 'Tu voto anterior se ha actualizado correctamente.') + ' Te hemos enviado una confirmación si tenemos tu correo.'
+    return render(request, 'vip_vote.html', {'partido': partido, 'league_managers': LEAGUE_MANAGERS, 'selected_division': selected_division, 'selected_manager': selected_manager, 'verification_sent': verification_sent, 'message': message, 'existing_vote': existing_vote})
 
 
 @login_required
