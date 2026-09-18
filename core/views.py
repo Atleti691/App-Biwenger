@@ -339,7 +339,9 @@ def vip_matches(request):
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'), cerrado=False)
             division = request.POST.get('division', '')
             manager = request.POST.get('manager', '')
-            if manager not in LEAGUE_MANAGERS.get(division, []):
+            if timezone.now() > partido.fecha_cierre:
+                message = 'La votación ya ha terminado. Utiliza la opción de introducir voto manual para quienes no hayan votado.'
+            elif manager not in LEAGUE_MANAGERS.get(division, []):
                 message = 'No se ha podido identificar al manager seleccionado.'
             elif partido.votos.filter(division=division, manager=manager).exists():
                 message = f'{manager} ya ha votado en este partido.'

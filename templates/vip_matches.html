@@ -85,6 +85,7 @@
 </div>{% endif %}{% endfor %}
 </section>{% endif %}
 </main>
+<script>document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('a[href^="#resultados-"]').forEach(link=>{const card=link.closest('.match');card?.querySelectorAll('button[value="emergency_code"]').forEach(button=>button.closest('form')?.remove())})});</script>
 {% if emergency_code_info %}<script>document.addEventListener('DOMContentLoaded',()=>document.getElementById('emergency-code-result')?.scrollIntoView({behavior:'smooth',block:'center'}));</script>{% endif %}
 </body>
 </html>
