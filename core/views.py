@@ -119,7 +119,7 @@ def communications(request):
         return redirect('/')
     restore_all_fixed_staff_access()
     message = ''
-    access_action_result = None
+    access_action_result = request.session.pop('access_action_result', None)
     if request.method == 'POST' and request.POST.get('action') == 'reset_viewer_access':
         contact = get_object_or_404(ContactoManager, pk=request.POST.get('contact_id'))
         user = get_user_model().objects.filter(username__iexact=contact.manager).first()
@@ -169,6 +169,8 @@ def communications(request):
             'ok': message.startswith('Nueva contraseña enviada'),
             'message': message,
         }
+        request.session['access_action_result'] = access_action_result
+        return redirect(f'/comunicaciones/#access-row-{contact.id}')
     elif request.method == 'POST' and request.POST.get('action') == 'create_viewer_one':
         contact = get_object_or_404(ContactoManager, pk=request.POST.get('contact_id'))
         if not contact.email.strip():
