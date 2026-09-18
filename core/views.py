@@ -119,7 +119,51 @@ def communications(request):
         return redirect('/')
     restore_all_fixed_staff_access()
     message = ''
-    if request.method == 'POST' and request.POST.get('action') == 'create_viewer_one':
+    if request.method == 'POST' and request.POST.get('action') == 'reset_viewer_access':
+        contact = get_object_or_404(ContactoManager, pk=request.POST.get('contact_id'))
+        user = get_user_model().objects.filter(username__iexact=contact.manager).first()
+        if not user:
+            message = f'Todavía no existe una cuenta para {contact.manager}.'
+        else:
+            account, _ = UserAccess.objects.get_or_create(user=user)
+            account = restore_fixed_staff_access(user, account)
+            if account.role != 'viewer' or user.username.casefold() in {name.casefold() for name in EDIT_DIVISIONS}:
+                message = 'No se ha modificado la contraseña: esta cuenta pertenece a un administrador o colaborador protegido.'
+            elif not contact.email.strip():
+                message = f'{contact.manager} no tiene correo registrado.'
+            else:
+                alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+                initial_password = ''.join(secrets.choice(alphabet) for _ in range(10))
+                previous_password = user.password
+                previous_email = user.email
+                previous_must_change = account.must_change_password
+                user.set_password(initial_password)
+                user.email = contact.email.strip()
+                user.save(update_fields=['password', 'email'])
+                account.must_change_password = True
+                account.save(update_fields=['must_change_password'])
+                login_url = request.build_absolute_uri('/login/')
+                try:
+                    sent = EmailMessage(
+                        subject='Nueva contraseña temporal — Liga Amigos XI',
+                        body=(f'Hola {contact.manager}.\n\nSe ha generado una nueva contraseña temporal para tu cuenta.\n\n'
+                              f'Usuario: {user.username}\nContraseña temporal: {initial_password}\nAcceso: {login_url}\n\n'
+                              'La contraseña anterior ya no funciona. Al entrar tendrás que elegir una contraseña nueva.'),
+                        to=[contact.email.strip()],
+                    ).send(fail_silently=False)
+                except Exception:
+                    logger.exception('No se pudo reenviar el acceso de consulta a %s', contact.manager)
+                    sent = 0
+                if not sent:
+                    user.password = previous_password
+                    user.email = previous_email
+                    user.save(update_fields=['password', 'email'])
+                    account.must_change_password = previous_must_change
+                    account.save(update_fields=['must_change_password'])
+                CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='regenerar acceso de consulta', detalle={'manager': contact.manager, 'correo_enviado': bool(sent)})
+                message = (f'Nueva contraseña enviada a {contact.manager}.' if sent else
+                           f'No se pudo enviar el correo a {contact.manager}; se ha conservado su contraseña anterior.')
+    elif request.method == 'POST' and request.POST.get('action') == 'create_viewer_one':
         contact = get_object_or_404(ContactoManager, pk=request.POST.get('contact_id'))
         if not contact.email.strip():
             return JsonResponse({'ok': False, 'manager': contact.manager, 'error': 'No tiene correo registrado'}, status=400)
@@ -130,7 +174,8 @@ def communications(request):
             if not account_created:
                 return JsonResponse({'ok': True, 'manager': contact.manager, 'status': 'existing', 'email_sent': False})
         else:
-            initial_password = secrets.token_urlsafe(10) + '!9'
+            alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+            initial_password = ''.join(secrets.choice(alphabet) for _ in range(10))
             user = get_user_model().objects.create_user(username=contact.manager, email=contact.email, password=initial_password)
             UserAccess.objects.create(user=user, must_change_password=True, is_viewer=True, role='viewer', editable_divisions=[])
             login_url = request.build_absolute_uri('/login/')
@@ -159,7 +204,8 @@ def communications(request):
                 restore_fixed_staff_access(existing_user, existing_access)
                 skipped_count += 1
                 continue
-            initial_password = secrets.token_urlsafe(10) + '!9'
+            alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+            initial_password = ''.join(secrets.choice(alphabet) for _ in range(10))
             user = get_user_model().objects.create_user(username=contact.manager, email=contact.email, password=initial_password)
             UserAccess.objects.create(user=user, must_change_password=True, is_viewer=True, role='viewer', editable_divisions=[])
             created_count += 1
