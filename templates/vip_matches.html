@@ -64,6 +64,26 @@
 <p>
 <strong>Acertantes de goles:</strong> {% for voto in partido.acertantes_goles %}{{ voto.manager }}{% if not forloop.last %}, {% endif %}{% empty %}Ninguno{% endfor %}</p>{% endif %}</article>{% empty %}<p>Todavía no hay partidos VIP creados.</p>{% endfor %}</div>
 </section>
+{% if is_admin %}<section class="card" id="votos-manuales">
+<h2>📝 Introducir votos realizados fuera de la aplicación</h2>
+<p>Esta opción aparece al finalizar el plazo de votación. Solo permite registrar el voto de un manager que figure como <strong>No ha votado</strong>; los votos existentes no se pueden modificar.</p>
+{% for partido in partidos %}{% if partido.votacion_finalizada %}
+<div class="match" style="margin-top:14px">
+<h3>{{ partido.titulo }}</h3>
+{% for estado in partido.estado_divisiones %}
+<div class="division-status"><h4>{{ estado.division }}</h4>
+{% for manager in estado.pendientes %}
+<form method="post" class="actions" style="align-items:center;margin:8px 0;padding:9px;background:#fff;border-radius:8px">
+{% csrf_token %}<input type="hidden" name="partido_id" value="{{ partido.id }}"><input type="hidden" name="division" value="{{ estado.division }}"><input type="hidden" name="manager" value="{{ manager }}">
+<strong style="flex:1;min-width:150px">{{ manager }} · No ha votado</strong>
+<select name="posicionamiento" required><option value="">Posicionamiento</option><option value="local">{{ partido.equipo_local }}</option><option value="visitante">{{ partido.equipo_visitante }}</option><option value="ninguno">Ninguno</option></select>
+<select name="pronostico_goles" required><option value="">Goles</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3+">3 o más</option></select>
+<button name="action" value="manual_vote">📝 Introducir voto manual</button>
+</form>
+{% empty %}<p class="voted">✅ Todos los managers de esta división han votado.</p>{% endfor %}
+</div>{% endfor %}
+</div>{% endif %}{% endfor %}
+</section>{% endif %}
 </main>
 {% if emergency_code_info %}<script>document.addEventListener('DOMContentLoaded',()=>document.getElementById('emergency-code-result')?.scrollIntoView({behavior:'smooth',block:'center'}));</script>{% endif %}
 </body>
