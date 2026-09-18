@@ -35,9 +35,43 @@ LEAGUE_MANAGERS = {
 }
 
 
+def restore_fixed_staff_access(user, access):
+    """Keep the administrator and original collaborators out of viewer mode."""
+    if user.username == 'Atleti69':
+        expected_role = 'admin'
+        expected_divisions = []
+    elif user.username in EDIT_DIVISIONS:
+        expected_role = 'collaborator'
+        expected_divisions = sorted(EDIT_DIVISIONS[user.username] - {'*'})
+    else:
+        return access
+    changed_fields = []
+    if access.role != expected_role:
+        access.role = expected_role
+        changed_fields.append('role')
+    if access.is_viewer:
+        access.is_viewer = False
+        changed_fields.append('is_viewer')
+    if access.editable_divisions != expected_divisions:
+        access.editable_divisions = expected_divisions
+        changed_fields.append('editable_divisions')
+    if changed_fields:
+        access.save(update_fields=changed_fields)
+    return access
+
+
+def restore_all_fixed_staff_access():
+    for username in EDIT_DIVISIONS:
+        user = get_user_model().objects.filter(username=username).first()
+        if user:
+            access, _ = UserAccess.objects.get_or_create(user=user)
+            restore_fixed_staff_access(user, access)
+
+
 @login_required
 def home(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
+    access = restore_fixed_staff_access(request.user, access)
     if access.access_expires_at and access.access_expires_at <= timezone.now():
         logout(request)
         return redirect('/login/?expired=1')
@@ -68,8 +102,10 @@ def contact_form(request):
 @login_required
 def communications(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
+    access = restore_fixed_staff_access(request.user, access)
     if request.user.username != 'Atleti69' and access.role != 'admin':
         return redirect('/')
+    restore_all_fixed_staff_access()
     message = ''
     if request.method == 'POST' and request.POST.get('action') == 'create_viewers':
         created_count = sent_count = skipped_count = 0
@@ -78,6 +114,8 @@ def communications(request):
         for contact in ContactoManager.objects.exclude(email='').order_by('division', 'manager'):
             existing_user = get_user_model().objects.filter(username__iexact=contact.manager).first()
             if existing_user:
+                existing_access, _ = UserAccess.objects.get_or_create(user=existing_user)
+                restore_fixed_staff_access(existing_user, existing_access)
                 skipped_count += 1
                 continue
             initial_password = secrets.token_urlsafe(10) + '!9'
@@ -126,6 +164,7 @@ def communications(request):
 @login_required
 def vip_matches(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
+    access = restore_fixed_staff_access(request.user, access)
     if access.role == 'viewer':
         return redirect('/')
     is_admin = request.user.username == 'Atleti69' or access.role == 'admin'
@@ -325,6 +364,7 @@ def origins(request):
 @login_required
 def tournaments(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
+    access = restore_fixed_staff_access(request.user, access)
     if access.role == 'viewer':
         return redirect('/')
     divisions = ['Primera Divisi\u00f3n', 'Segunda Divisi\u00f3n', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
@@ -465,8 +505,10 @@ def _legacy_setup_collaborators(request):
 @login_required
 def setup_collaborators(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
+    access = restore_fixed_staff_access(request.user, access)
     if request.user.username != 'Atleti69' and access.role != 'admin':
         return redirect('/')
+    restore_all_fixed_staff_access()
     divisions = ['Primera División', 'Segunda División', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
     message = ''
     if request.method == 'POST':
@@ -474,7 +516,7 @@ def setup_collaborators(request):
         target_id = request.POST.get('user_id')
         if action == 'delete_user' and target_id:
             target = get_user_model().objects.filter(pk=target_id).first()
-            if target and target.username != 'Atleti69':
+            if target and target.username not in EDIT_DIVISIONS:
                 username = target.username
                 target.delete()
                 CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='eliminar usuario', detalle={'usuario': username})
@@ -494,7 +536,7 @@ def setup_collaborators(request):
             target = get_user_model().objects.filter(pk=target_id).first()
             if target:
                 target_access, _ = UserAccess.objects.get_or_create(user=target)
-                if target.username != 'Atleti69':
+                if target.username not in EDIT_DIVISIONS:
                     target_access.role = request.POST.get('role', 'viewer')
                     target_access.is_viewer = target_access.role == 'viewer'
                     target_access.editable_divisions = request.POST.getlist('divisions') if target_access.role == 'collaborator' else []
@@ -534,6 +576,7 @@ def setup_collaborators(request):
 @login_required
 def dashboard(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
+    access = restore_fixed_staff_access(request.user, access)
     if access.access_expires_at and access.access_expires_at <= timezone.now():
         logout(request)
         return redirect('/login/?expired=1')
