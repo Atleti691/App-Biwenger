@@ -286,30 +286,6 @@ def vip_matches(request):
                 message = 'Partido VIP creado.'
             except (ValueError, KeyError):
                 message = 'Revisa los datos y la fecha del partido.'
-        elif action == 'request_vote_edit_code' and is_admin:
-            partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'))
-            division = request.POST.get('division', '')
-            manager = request.POST.get('manager', '')
-            vote = partido.votos.filter(division=division, manager=manager).first()
-            contact = ContactoManager.objects.filter(division=division, manager=manager).first()
-            if not vote:
-                message = f'{manager} todavía no tiene voto; puedes registrarlo manualmente sin autorización.'
-            elif not contact or not contact.email.strip():
-                message = f'No hay correo registrado para solicitar autorización a {manager}.'
-            else:
-                CodigoEmergenciaVIP.objects.filter(partido=partido, division=division, manager=manager, proposito='editar', usado__isnull=True).update(caduca=timezone.now())
-                edit_code = f'{secrets.randbelow(1000000):06d}'
-                code_record = CodigoEmergenciaVIP.objects.create(partido=partido, division=division, manager=manager, codigo_hash=make_password(edit_code), proposito='editar', caduca=timezone.now() + timedelta(minutes=30), creado_por=request.user)
-                try:
-                    sent = EmailMessage(subject=f'Autorización para corregir tu voto — {partido.titulo}', body=f'Hola {manager}. Tu código para autorizar al administrador a corregir tu voto es {edit_code}. Caduca en 30 minutos y solo puede usarse una vez. Si no has solicitado el cambio, no compartas este código.', to=[contact.email.strip()]).send(fail_silently=False)
-                except Exception:
-                    logger.exception('No se pudo enviar autorización de edición VIP a %s', manager)
-                    sent = 0
-                if sent:
-                    message = f'Código de autorización enviado a {manager}. Debe comunicártelo para corregir su voto.'
-                else:
-                    code_record.delete()
-                    message = f'No se pudo enviar el código de autorización a {manager}.'
         elif action == 'manual_vote' and is_admin:
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'))
             division = request.POST.get('division', '')
@@ -317,26 +293,19 @@ def vip_matches(request):
             posicionamiento = request.POST.get('posicionamiento', '')
             pronostico = request.POST.get('pronostico_goles', '')
             existing = partido.votos.filter(division=division, manager=manager).first()
+            voting_finished = partido.cerrado or timezone.now() > partido.fecha_cierre
             valid_identity = manager in LEAGUE_MANAGERS.get(division, [])
             valid_choices = posicionamiento in dict(VotoPartidoVIP.POSITION_CHOICES) and pronostico in dict(VotoPartidoVIP.GOAL_CHOICES)
-            authorized = not existing
-            authorization_record = None
-            if existing:
-                submitted_code = request.POST.get('authorization_code', '').strip()
-                candidates = CodigoEmergenciaVIP.objects.filter(partido=partido, division=division, manager=manager, proposito='editar', usado__isnull=True, caduca__gt=timezone.now())
-                authorization_record = next((item for item in candidates if check_password(submitted_code, item.codigo_hash)), None)
-                authorized = authorization_record is not None
-            if not valid_identity or not valid_choices:
+            if not voting_finished:
+                message = 'El voto manual solo se puede registrar cuando haya terminado la votación.'
+            elif existing:
+                message = f'{manager} ya votó. Una votación cerrada no se puede modificar.'
+            elif not valid_identity or not valid_choices:
                 message = 'Revisa el manager y las opciones del voto manual.'
-            elif not authorized:
-                message = f'El código de autorización de {manager} no es correcto o ha caducado.'
             else:
-                vote, created = VotoPartidoVIP.objects.update_or_create(partido=partido, division=division, manager=manager, defaults={'posicionamiento': posicionamiento, 'pronostico_goles': pronostico, 'origen': 'manual', 'registrado_por': request.user})
-                if authorization_record:
-                    authorization_record.usado = timezone.now()
-                    authorization_record.save(update_fields=['usado'])
-                CambioRegistro.objects.create(usuario=request.user, division=division, jornada=0, accion='registrar voto VIP manual' if created else 'corregir voto VIP autorizado', detalle={'partido': partido.id, 'manager': manager, 'posicionamiento': posicionamiento, 'pronostico_goles': pronostico})
-                message = f'Voto de {manager} guardado manualmente.' if created else f'Voto de {manager} corregido con su autorización.'
+                VotoPartidoVIP.objects.create(partido=partido, division=division, manager=manager, posicionamiento=posicionamiento, pronostico_goles=pronostico, origen='manual', registrado_por=request.user)
+                CambioRegistro.objects.create(usuario=request.user, division=division, jornada=0, accion='registrar voto VIP manual', detalle={'partido': partido.id, 'manager': manager, 'posicionamiento': posicionamiento, 'pronostico_goles': pronostico})
+                message = f'Voto de {manager} guardado manualmente.'
         elif action == 'close' and is_admin:
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'))
             partido.goles_reales = max(0, int(request.POST.get('goles_reales', 0)))
@@ -420,6 +389,7 @@ def vip_matches(request):
         if logo_fields and (partido.escudo_local or partido.escudo_visitante):
             partido.save(update_fields=logo_fields)
         partido.vote_url = request.build_absolute_uri(f'/partidos-vip/votar/{partido.id}/')
+        partido.votacion_finalizada = partido.cerrado or timezone.now() > partido.fecha_cierre
         partido.participantes = partido.votos.count()
         if is_admin:
             voted_by_division = {}
@@ -450,6 +420,7 @@ def vip_matches(request):
 
 def vip_vote(request, partido_id):
     partido = get_object_or_404(PartidoVIP, pk=partido_id)
+    voting_closed = partido.cerrado or timezone.now() > partido.fecha_cierre
     position_votes = {'local': [], 'visitante': [], 'ninguno': []}
     for previous_vote in partido.votos.order_by('division', 'manager'):
         position_votes.setdefault(previous_vote.posicionamiento, []).append({'manager': previous_vote.manager, 'division': previous_vote.division})
@@ -475,7 +446,7 @@ def vip_vote(request, partido_id):
     verification_sent = False
     selected_manager = request.POST.get('manager', '')
     existing_vote = None
-    if request.method == 'POST' and not partido.cerrado and timezone.now() <= partido.fecha_cierre:
+    if request.method == 'POST' and not voting_closed:
         action = request.POST.get('action')
         contact = ContactoManager.objects.filter(division=selected_division, manager=selected_manager).first()
         if selected_division and selected_manager:
@@ -484,6 +455,9 @@ def vip_vote(request, partido_id):
             verification_sent = True
             message = 'Introduce el código que recibiste para confirmar tu voto.'
         elif action == 'send_code' and contact and contact.email.lower() == request.POST.get('email', '').strip().lower():
+            if existing_vote:
+                message = 'Este manager ya ha votado. Cada manager solo puede votar una vez.'
+                return render(request, 'vip_vote.html', {'partido': partido, 'league_managers': LEAGUE_MANAGERS, 'selected_division': selected_division, 'selected_manager': selected_manager, 'verification_sent': False, 'message': message, 'existing_vote': existing_vote, 'position_votes': position_votes, 'voting_closed': voting_closed})
             code = f'{secrets.randbelow(1000000):06d}'
             try:
                 sent_count = EmailMessage(subject=f'Código de votación — {partido.titulo}', body=f'Tu código para votar es {code}. Caduca en 15 minutos.', to=[contact.email]).send(fail_silently=False)
@@ -518,11 +492,12 @@ def vip_vote(request, partido_id):
                 message = 'El código no es correcto o ha caducado. Solicita uno nuevo.'
                 verification_sent = True
             elif selected_manager in LEAGUE_MANAGERS.get(selected_division, []):
-                if emergency_record and existing_vote:
-                    message = 'Este manager ya había votado. El código de emergencia no permite emitir un segundo voto.'
+                if existing_vote:
+                    message = 'Este manager ya había votado. Cada manager solo puede votar una vez.'
                     verification_sent = True
-                    return render(request, 'vip_vote.html', {'partido': partido, 'league_managers': LEAGUE_MANAGERS, 'selected_division': selected_division, 'selected_manager': selected_manager, 'verification_sent': verification_sent, 'message': message, 'existing_vote': existing_vote, 'position_votes': position_votes})
-                existing_vote, created = VotoPartidoVIP.objects.update_or_create(partido=partido, division=selected_division, manager=selected_manager, defaults={'posicionamiento': request.POST.get('posicionamiento'), 'pronostico_goles': request.POST.get('pronostico_goles'), 'origen': 'usuario', 'registrado_por': None})
+                    return render(request, 'vip_vote.html', {'partido': partido, 'league_managers': LEAGUE_MANAGERS, 'selected_division': selected_division, 'selected_manager': selected_manager, 'verification_sent': verification_sent, 'message': message, 'existing_vote': existing_vote, 'position_votes': position_votes, 'voting_closed': voting_closed})
+                existing_vote = VotoPartidoVIP.objects.create(partido=partido, division=selected_division, manager=selected_manager, posicionamiento=request.POST.get('posicionamiento'), pronostico_goles=request.POST.get('pronostico_goles'), origen='usuario')
+                created = True
                 if emergency_record:
                     emergency_record.usado = timezone.now()
                     emergency_record.save(update_fields=['usado'])
@@ -531,7 +506,7 @@ def vip_vote(request, partido_id):
                     EmailMessage(subject=f'Voto confirmado — {partido.titulo}', body=f'Hola {selected_manager}. Tu voto para {partido.titulo} ha quedado registrado correctamente.', to=[contact.email]).send(fail_silently=True)
                 request.session.pop(f'vip_code_{partido.id}', None)
                 message = ('Voto guardado correctamente.' if created else 'Tu voto anterior se ha actualizado correctamente.') + ' Te hemos enviado una confirmación si tenemos tu correo.'
-    return render(request, 'vip_vote.html', {'partido': partido, 'league_managers': LEAGUE_MANAGERS, 'selected_division': selected_division, 'selected_manager': selected_manager, 'verification_sent': verification_sent, 'message': message, 'existing_vote': existing_vote, 'position_votes': position_votes})
+    return render(request, 'vip_vote.html', {'partido': partido, 'league_managers': LEAGUE_MANAGERS, 'selected_division': selected_division, 'selected_manager': selected_manager, 'verification_sent': verification_sent, 'message': message, 'existing_vote': existing_vote, 'position_votes': position_votes, 'voting_closed': voting_closed})
 
 
 @login_required

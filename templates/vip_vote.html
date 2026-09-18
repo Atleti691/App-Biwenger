@@ -37,7 +37,7 @@
 <a class="skip-results" href="#vote-form">Continuar sin ver los posicionamientos</a>
 <div id="vote-form">
 </div>{% if message %}<p class="message">{{ message }}</p>{% endif %}
-{% if partido.cerrado %}<p>La votación está cerrada.</p>
+{% if voting_closed %}<p class="identity"><strong>🔒 La votación está cerrada.</strong><br>Ya no se pueden emitir ni modificar votos.</p><a class="back" href="{% url 'vip_matches' %}#resultados-{{ partido.id }}">Ver resultados y desglose</a>
 {% elif verification_sent %}
 {% if existing_vote %}<p class="identity">
 <strong>⚠️ Ya habías votado.</strong>
