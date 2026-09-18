@@ -119,6 +119,7 @@ def communications(request):
         return redirect('/')
     restore_all_fixed_staff_access()
     message = ''
+    access_action_result = None
     if request.method == 'POST' and request.POST.get('action') == 'reset_viewer_access':
         contact = get_object_or_404(ContactoManager, pk=request.POST.get('contact_id'))
         user = get_user_model().objects.filter(username__iexact=contact.manager).first()
@@ -163,6 +164,11 @@ def communications(request):
                 CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='regenerar acceso de consulta', detalle={'manager': contact.manager, 'correo_enviado': bool(sent)})
                 message = (f'Nueva contraseña enviada a {contact.manager}.' if sent else
                            f'No se pudo enviar el correo a {contact.manager}; se ha conservado su contraseña anterior.')
+        access_action_result = {
+            'contact_id': contact.id,
+            'ok': message.startswith('Nueva contraseña enviada'),
+            'message': message,
+        }
     elif request.method == 'POST' and request.POST.get('action') == 'create_viewer_one':
         contact = get_object_or_404(ContactoManager, pk=request.POST.get('contact_id'))
         if not contact.email.strip():
@@ -246,7 +252,7 @@ def communications(request):
     completed_percentage = round(completed * 100 / total) if total else 0
     pending_accounts = [{'id': row['contact'].id, 'manager': row['manager']} for row in rows if row['contact'] and not row['app_account']]
     share_url = request.build_absolute_uri('/actualizar-contacto/')
-    return render(request, 'communications.html', {'rows': rows, 'share_url': share_url, 'completed': completed, 'total': total, 'completed_percentage': completed_percentage, 'pending_accounts': pending_accounts, 'message': message})
+    return render(request, 'communications.html', {'rows': rows, 'share_url': share_url, 'completed': completed, 'total': total, 'completed_percentage': completed_percentage, 'pending_accounts': pending_accounts, 'message': message, 'access_action_result': access_action_result})
 
 
 @login_required
