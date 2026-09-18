@@ -212,6 +212,7 @@ def vip_matches(request):
     is_admin = request.user.username.casefold() == 'atleti69' or access.role == 'admin'
     can_create_vip = is_admin or access.role == 'collaborator'
     message = ''
+    emergency_code_info = None
     if request.method == 'POST':
         action = request.POST.get('action')
         if action == 'create' and can_create_vip:
@@ -279,6 +280,12 @@ def vip_matches(request):
                     caduca=timezone.now() + timedelta(minutes=15),
                     creado_por=request.user,
                 )
+                emergency_code_info = {
+                    'partido_id': partido.id,
+                    'division': division,
+                    'manager': manager,
+                    'code': emergency_code,
+                }
                 message = f'CÓDIGO DE EMERGENCIA · {manager} · {division}: {emergency_code} · Caduca en 15 minutos y solo puede usarse una vez.'
     partidos = list(PartidoVIP.objects.prefetch_related('votos').order_by('-creado'))
     manager_points = {}
@@ -330,7 +337,7 @@ def vip_matches(request):
         if partido.media_local is not None and partido.media_visitante is not None and partido.media_local != partido.media_visitante:
             partido.ganador_posicionamiento = 'local' if partido.media_local > partido.media_visitante else 'visitante'
         partido.acertantes_goles = [v for v in partido.votos.all() if partido.cerrado and v.pronostico_goles == partido.opcion_goles_real]
-    return render(request, 'vip_matches.html', {'partidos': partidos, 'is_admin': is_admin, 'can_create_vip': can_create_vip, 'message': message, 'divisions': LEAGUE_MANAGERS.keys()})
+    return render(request, 'vip_matches.html', {'partidos': partidos, 'is_admin': is_admin, 'can_create_vip': can_create_vip, 'message': message, 'divisions': LEAGUE_MANAGERS.keys(), 'emergency_code_info': emergency_code_info})
 
 
 def vip_vote(request, partido_id):
