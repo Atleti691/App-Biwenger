@@ -168,9 +168,11 @@ def communications(request):
             'contact_id': contact.id,
             'ok': message.startswith('Nueva contraseña enviada'),
             'message': message,
+            'temporary_password': initial_password if 'initial_password' in locals() and sent else '',
         }
         request.session['access_action_result'] = access_action_result
-        return redirect(f'/comunicaciones/#access-row-{contact.id}')
+        target_anchor = 'temporary-password-card' if access_action_result['temporary_password'] else f'access-row-{contact.id}'
+        return redirect(f'/comunicaciones/#{target_anchor}')
     elif request.method == 'POST' and request.POST.get('action') == 'create_viewer_one':
         contact = get_object_or_404(ContactoManager, pk=request.POST.get('contact_id'))
         if not contact.email.strip():
