@@ -26,6 +26,15 @@ EDIT_DIVISIONS = {
     'Carbayon': {'Segunda RFEF'},
 }
 
+
+def fixed_edit_divisions(username):
+    """Return protected staff divisions without depending on username casing."""
+    folded_username = (username or '').casefold()
+    for fixed_username, divisions in EDIT_DIVISIONS.items():
+        if fixed_username.casefold() == folded_username:
+            return divisions
+    return set()
+
 LEAGUE_MANAGERS = {
     'Primera Divisi\u00f3n': ['AlexJulio','Rexza','C.D.F. Arrieritos','Gestafa FC','Golden Ball','Ivanetti',"Kabe's Team",'Maceda','Mouki','Munera City','Raul C','Real JR','I\u00f1igoool!!!!','Reventao','Tuercebotas','Llull Team','Pablo Cuevas','Joselillo81'],
     'Segunda Divisi\u00f3n': ['Marina','Kataki Villenero','Carbayon','At. Aviacion','Vendy','Goyo','Rocky Team','Ruben 1903ATM','Jackobo','Baetulo','FC Almog\u00e1vers','Re Creativo Igualadino','Rapido de Bouzas','Gasteiz United','eMCasa','Gabrielix de Asturin','Adrianpt260','SpartanAgain'],
@@ -37,12 +46,14 @@ LEAGUE_MANAGERS = {
 
 def restore_fixed_staff_access(user, access):
     """Keep the administrator and original collaborators out of viewer mode."""
-    if user.username == 'Atleti69':
+    fixed_staff = {username.casefold(): (username, divisions) for username, divisions in EDIT_DIVISIONS.items()}
+    fixed_entry = fixed_staff.get(user.username.casefold())
+    if user.username.casefold() == 'atleti69':
         expected_role = 'admin'
         expected_divisions = []
-    elif user.username in EDIT_DIVISIONS:
+    elif fixed_entry:
         expected_role = 'collaborator'
-        expected_divisions = sorted(EDIT_DIVISIONS[user.username] - {'*'})
+        expected_divisions = sorted(fixed_entry[1] - {'*'})
     else:
         return access
     changed_fields = []
@@ -62,7 +73,7 @@ def restore_fixed_staff_access(user, access):
 
 def restore_all_fixed_staff_access():
     for username in EDIT_DIVISIONS:
-        user = get_user_model().objects.filter(username=username).first()
+        user = get_user_model().objects.filter(username__iexact=username).first()
         if user:
             access, _ = UserAccess.objects.get_or_create(user=user)
             restore_fixed_staff_access(user, access)
@@ -103,7 +114,7 @@ def contact_form(request):
 def communications(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
     access = restore_fixed_staff_access(request.user, access)
-    if request.user.username != 'Atleti69' and access.role != 'admin':
+    if request.user.username.casefold() != 'atleti69' and access.role != 'admin':
         return redirect('/')
     restore_all_fixed_staff_access()
     message = ''
@@ -197,7 +208,7 @@ def vip_matches(request):
     access = restore_fixed_staff_access(request.user, access)
     if access.role == 'viewer':
         return redirect('/')
-    is_admin = request.user.username == 'Atleti69' or access.role == 'admin'
+    is_admin = request.user.username.casefold() == 'atleti69' or access.role == 'admin'
     can_create_vip = is_admin or access.role == 'collaborator'
     message = ''
     if request.method == 'POST':
@@ -484,7 +495,7 @@ def change_password(request):
 
 @login_required
 def _legacy_setup_collaborators(request):
-    if request.user.username != 'Atleti69':
+    if request.user.username.casefold() != 'atleti69':
         return redirect('/')
     names = ['Kabes Team', 'LLull Team', 'Reventao', 'Carbayon']
     message = ''
@@ -536,7 +547,7 @@ def _legacy_setup_collaborators(request):
 def setup_collaborators(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
     access = restore_fixed_staff_access(request.user, access)
-    if request.user.username != 'Atleti69' and access.role != 'admin':
+    if request.user.username.casefold() != 'atleti69' and access.role != 'admin':
         return redirect('/')
     restore_all_fixed_staff_access()
     divisions = ['Primera División', 'Segunda División', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
@@ -546,7 +557,7 @@ def setup_collaborators(request):
         target_id = request.POST.get('user_id')
         if action == 'delete_user' and target_id:
             target = get_user_model().objects.filter(pk=target_id).first()
-            if target and target.username not in EDIT_DIVISIONS:
+            if target and target.username.casefold() not in {username.casefold() for username in EDIT_DIVISIONS}:
                 username = target.username
                 target.delete()
                 CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='eliminar usuario', detalle={'usuario': username})
@@ -566,7 +577,7 @@ def setup_collaborators(request):
             target = get_user_model().objects.filter(pk=target_id).first()
             if target:
                 target_access, _ = UserAccess.objects.get_or_create(user=target)
-                if target.username not in EDIT_DIVISIONS:
+                if target.username.casefold() not in {username.casefold() for username in EDIT_DIVISIONS}:
                     target_access.role = request.POST.get('role', 'viewer')
                     target_access.is_viewer = target_access.role == 'viewer'
                     target_access.editable_divisions = request.POST.getlist('divisions') if target_access.role == 'collaborator' else []
@@ -622,7 +633,7 @@ def dashboard(request):
         'Segunda RFEF': ['Semela','Soar FC','UnaiRZ','Izan Navarro','JaviArsenal','Jose Mourinho','Muñeko','Danilo77','Alex SC','K87','EmiGeta','A.A. Ponte Preta','Atletico Zaragoza','Peluso F.C.','Emilio Ramos','Sevi-21','Esta NFL No la Entiendo','Deckers'],
         'Liga Moeve': ['Titanes65','Antbariba','El Macho','Palacios FC','Real Oviedo','OskitarTeam','Jopehe95','Schalke Te meto','Caimans','Shaiel Afonso Rodriguez','RBN147','Ivan Diaz'],
     }
-    legacy_allowed = EDIT_DIVISIONS.get(request.user.username, set())
+    legacy_allowed = fixed_edit_divisions(request.user.username)
     editable_divisions = [division for division, _ in divisions if division in legacy_allowed]
     editable_divisions.extend(access.editable_divisions)
     return render(request, 'dashboard.html', {
@@ -631,7 +642,7 @@ def dashboard(request):
         'initial_users': next(iter(users.values())),
         'jornadas': range(1, 39),
         'editable_divisions': list(dict.fromkeys(editable_divisions)),
-        'can_edit_all': request.user.username == 'Atleti69' or access.role == 'admin',
+        'can_edit_all': request.user.username.casefold() == 'atleti69' or access.role == 'admin',
     })
 
 
@@ -647,6 +658,7 @@ def matches_api(request, season, round_number):
 @login_required
 def jornada_api(request, season, jornada):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
+    access = restore_fixed_staff_access(request.user, access)
     import json
     division = request.GET.get('division', '')
     if request.method == 'POST':
@@ -661,13 +673,13 @@ def jornada_api(request, season, jornada):
         return JsonResponse({'datos': registro.datos, 'cerrada': registro.cerrada})
     registro, _ = JornadaRegistro.objects.get_or_create(user_access=access, season=season, jornada=jornada, division=division)
     if request.method == 'POST':
-        allowed = EDIT_DIVISIONS.get(request.user.username, set())
+        allowed = fixed_edit_divisions(request.user.username)
         can_edit = access.role == 'admin' or '*' in allowed or division in access.editable_divisions or division in allowed
         if not can_edit:
             return JsonResponse({'error': 'Solo puedes consultar esta división'}, status=403)
         payload = json.loads(request.body or '{}')
         if registro.cerrada:
-            is_admin = request.user.username == 'Atleti69' or access.role == 'admin'
+            is_admin = request.user.username.casefold() == 'atleti69' or access.role == 'admin'
             is_reopening = payload.get('cerrada') is False
             if not is_admin or not is_reopening:
                 return JsonResponse({'error': 'La jornada está cerrada. Debes reabrirla antes de modificarla.'}, status=403)
