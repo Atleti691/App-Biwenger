@@ -107,7 +107,36 @@ def communications(request):
         return redirect('/')
     restore_all_fixed_staff_access()
     message = ''
-    if request.method == 'POST' and request.POST.get('action') == 'create_viewers':
+    if request.method == 'POST' and request.POST.get('action') == 'create_viewer_one':
+        contact = get_object_or_404(ContactoManager, pk=request.POST.get('contact_id'))
+        if not contact.email.strip():
+            return JsonResponse({'ok': False, 'manager': contact.manager, 'error': 'No tiene correo registrado'}, status=400)
+        user = get_user_model().objects.filter(username__iexact=contact.manager).first()
+        if user:
+            account, account_created = UserAccess.objects.get_or_create(user=user)
+            restore_fixed_staff_access(user, account)
+            if not account_created:
+                return JsonResponse({'ok': True, 'manager': contact.manager, 'status': 'existing', 'email_sent': False})
+        else:
+            initial_password = secrets.token_urlsafe(10) + '!9'
+            user = get_user_model().objects.create_user(username=contact.manager, email=contact.email, password=initial_password)
+            UserAccess.objects.create(user=user, must_change_password=True, is_viewer=True, role='viewer', editable_divisions=[])
+            login_url = request.build_absolute_uri('/login/')
+            try:
+                sent = EmailMessage(
+                    subject='Acceso de consulta — Liga Amigos XI',
+                    body=(f'Hola {contact.manager}.\n\nYa tienes acceso de consulta a Liga Amigos XI.\n\n'
+                          f'Usuario: {contact.manager}\nContraseña inicial: {initial_password}\nAcceso: {login_url}\n\n'
+                          'Al entrar tendrás que cambiar la contraseña. Tu perfil solo permite consultar estadísticas y el mapa de procedencia.'),
+                    to=[contact.email],
+                ).send(fail_silently=False)
+            except Exception:
+                logger.exception('No se pudo enviar el acceso de consulta a %s', contact.manager)
+                sent = 0
+            CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='crear acceso de consulta', detalle={'manager': contact.manager, 'correo_enviado': bool(sent)})
+            return JsonResponse({'ok': True, 'manager': contact.manager, 'status': 'created', 'email_sent': bool(sent)})
+        return JsonResponse({'ok': True, 'manager': contact.manager, 'status': 'existing', 'email_sent': False})
+    elif request.method == 'POST' and request.POST.get('action') == 'create_viewers':
         created_count = sent_count = skipped_count = 0
         login_url = request.build_absolute_uri('/login/')
         access_messages = []
@@ -157,8 +186,9 @@ def communications(request):
     completed = sum(1 for row in rows if row['contact'] and row['contact'].email.strip())
     total = len(rows)
     completed_percentage = round(completed * 100 / total) if total else 0
+    pending_accounts = [{'id': row['contact'].id, 'manager': row['manager']} for row in rows if row['contact'] and not row['app_account']]
     share_url = request.build_absolute_uri('/actualizar-contacto/')
-    return render(request, 'communications.html', {'rows': rows, 'share_url': share_url, 'completed': completed, 'total': total, 'completed_percentage': completed_percentage, 'message': message})
+    return render(request, 'communications.html', {'rows': rows, 'share_url': share_url, 'completed': completed, 'total': total, 'completed_percentage': completed_percentage, 'pending_accounts': pending_accounts, 'message': message})
 
 
 @login_required
