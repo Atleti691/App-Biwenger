@@ -43,7 +43,7 @@ def home(request):
         return redirect('/login/?expired=1')
     if access.must_change_password and request.GET.get('skip') != '1':
         return redirect('/cambiar-contrasena/')
-    return render(request, 'home.html')
+    return render(request, 'home.html', {'is_viewer': access.role == 'viewer'})
 
 
 def public_home(request):
@@ -71,7 +71,38 @@ def communications(request):
     if request.user.username != 'Atleti69' and access.role != 'admin':
         return redirect('/')
     message = ''
-    if request.method == 'POST':
+    if request.method == 'POST' and request.POST.get('action') == 'create_viewers':
+        created_count = sent_count = skipped_count = 0
+        login_url = request.build_absolute_uri('/login/')
+        access_messages = []
+        for contact in ContactoManager.objects.exclude(email='').order_by('division', 'manager'):
+            existing_user = get_user_model().objects.filter(username__iexact=contact.manager).first()
+            if existing_user:
+                skipped_count += 1
+                continue
+            initial_password = secrets.token_urlsafe(10) + '!9'
+            user = get_user_model().objects.create_user(username=contact.manager, email=contact.email, password=initial_password)
+            UserAccess.objects.create(user=user, must_change_password=True, is_viewer=True, role='viewer', editable_divisions=[])
+            created_count += 1
+            access_messages.append(EmailMessage(
+                subject='Acceso de consulta — Liga Amigos XI',
+                body=(f'Hola {contact.manager}.\n\nYa tienes acceso de consulta a Liga Amigos XI.\n\n'
+                      f'Usuario: {contact.manager}\nContraseña inicial: {initial_password}\nAcceso: {login_url}\n\n'
+                      'Al entrar tendrás que cambiar la contraseña. Tu perfil solo permite consultar estadísticas y el mapa de procedencia.'),
+                to=[contact.email],
+            ))
+        if access_messages:
+            try:
+                sent_count = get_connection(fail_silently=False).send_messages(access_messages) or 0
+            except Exception:
+                logger.exception('No se pudieron enviar los accesos de consulta')
+        CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='crear accesos de consulta', detalle={'creados': created_count, 'correos_enviados': sent_count, 'existentes': skipped_count})
+        message = f'Se crearon {created_count} cuentas de consulta y se enviaron {sent_count} correos.'
+        if skipped_count:
+            message += f' Se conservaron {skipped_count} cuentas que ya existían.'
+        if sent_count < created_count:
+            message += f' No se pudieron enviar {created_count - sent_count} correos; puedes asignarles una contraseña nueva desde Gestionar colaboradores.'
+    elif request.method == 'POST':
         contact = get_object_or_404(ContactoManager, pk=request.POST.get('contact_id'))
         email = request.POST.get('email', '').strip()
         provincia = request.POST.get('provincia', '').strip()
@@ -83,14 +114,20 @@ def communications(request):
         else:
             message = 'El correo y la provincia son obligatorios.'
     contacts = {(item.division, item.manager): item for item in ContactoManager.objects.all()}
-    rows = [{'division': division, 'manager': manager, 'contact': contacts.get((division, manager))} for division, managers in LEAGUE_MANAGERS.items() for manager in managers]
+    app_accounts = {account.user.username.casefold(): account for account in UserAccess.objects.select_related('user')}
+    rows = [{'division': division, 'manager': manager, 'contact': contacts.get((division, manager)), 'app_account': app_accounts.get(manager.casefold())} for division, managers in LEAGUE_MANAGERS.items() for manager in managers]
+    completed = sum(1 for row in rows if row['contact'] and row['contact'].email.strip())
+    total = len(rows)
+    completed_percentage = round(completed * 100 / total) if total else 0
     share_url = request.build_absolute_uri('/actualizar-contacto/')
-    return render(request, 'communications.html', {'rows': rows, 'share_url': share_url, 'completed': len(contacts), 'total': len(rows), 'message': message})
+    return render(request, 'communications.html', {'rows': rows, 'share_url': share_url, 'completed': completed, 'total': total, 'completed_percentage': completed_percentage, 'message': message})
 
 
 @login_required
 def vip_matches(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
+    if access.role == 'viewer':
+        return redirect('/')
     is_admin = request.user.username == 'Atleti69' or access.role == 'admin'
     can_create_vip = is_admin or access.role == 'collaborator'
     message = ''
@@ -175,6 +212,8 @@ def vip_matches(request):
                     'division': division,
                     'votados': [voted_by_division.get(division, {}).get(manager) for manager in managers if manager in voted_by_division.get(division, {})],
                     'pendientes': [manager for manager in managers if manager not in voted_by_division.get(division, {})],
+                    'total': len(managers),
+                    'porcentaje': round(len(voted_by_division.get(division, {})) * 100 / len(managers)) if managers else 0,
                 }
                 for division, managers in LEAGUE_MANAGERS.items()
             ]
@@ -285,6 +324,9 @@ def origins(request):
 
 @login_required
 def tournaments(request):
+    access, _ = UserAccess.objects.get_or_create(user=request.user)
+    if access.role == 'viewer':
+        return redirect('/')
     divisions = ['Primera Divisi\u00f3n', 'Segunda Divisi\u00f3n', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
     return render(request, 'tournaments.html', {'divisions': divisions})
 
@@ -497,6 +539,8 @@ def dashboard(request):
         return redirect('/login/?expired=1')
     if access.must_change_password:
         return redirect('/cambiar-contrasena/')
+    if access.role == 'viewer':
+        return redirect('/')
     divisions = [('Primera División', 'Kabes Team'), ('Segunda División', 'LLull Team'), ('Primera RFEF', 'Reventao'), ('Segunda RFEF', 'Carbayon'), ('Liga Moeve', 'Kabes Team')]
     users = {
         'Primera División': ['AlexJulio','Rexza','C.D.F. Arrieritos','Gestafa FC','Golden Ball','Ivanetti',"Kabe's Team",'Maceda','Mouki','Munera City','Raul C','Real JR','Iñigoool!!!!','Reventao','Tuercebotas','Llull Team','Pablo Cuevas','Joselillo81'],
