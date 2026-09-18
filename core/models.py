@@ -119,3 +119,20 @@ class VotoPartidoVIP(models.Model):
 
     class Meta:
         unique_together = ('partido', 'division', 'manager')
+
+
+class CodigoEmergenciaVIP(models.Model):
+    partido = models.ForeignKey(PartidoVIP, on_delete=models.CASCADE, related_name='codigos_emergencia')
+    division = models.CharField(max_length=80)
+    manager = models.CharField(max_length=120)
+    codigo_hash = models.CharField(max_length=128)
+    caduca = models.DateTimeField()
+    usado = models.DateTimeField(null=True, blank=True)
+    creado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-creado',)
+
+    def __str__(self):
+        return f'{self.manager} — {self.partido}'

@@ -4,6 +4,7 @@ import unicodedata
 import logging
 
 from django.contrib.auth import get_user_model, login, logout
+from django.contrib.auth.hashers import check_password, make_password
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
@@ -13,7 +14,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from .forms import FirstPasswordChangeForm, LoginForm
-from .models import CambioRegistro, ContactoManager, JornadaRegistro, PartidoVIP, UserAccess, VotoPartidoVIP
+from .models import CambioRegistro, CodigoEmergenciaVIP, ContactoManager, JornadaRegistro, PartidoVIP, UserAccess, VotoPartidoVIP
 from .services.openligadb import get_matches, get_preferred_team_logo, get_team_logo
 
 logger = logging.getLogger(__name__)
@@ -257,6 +258,28 @@ def vip_matches(request):
                     message = 'No se pudo enviar el recordatorio. Revisa los registros de Render y vuelve a intentarlo.'
             else:
                 message = 'No hay usuarios pendientes con correo registrado.'
+        elif action == 'emergency_code' and is_admin:
+            partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'), cerrado=False)
+            division = request.POST.get('division', '')
+            manager = request.POST.get('manager', '')
+            if manager not in LEAGUE_MANAGERS.get(division, []):
+                message = 'No se ha podido identificar al manager seleccionado.'
+            elif partido.votos.filter(division=division, manager=manager).exists():
+                message = f'{manager} ya ha votado en este partido.'
+            else:
+                CodigoEmergenciaVIP.objects.filter(
+                    partido=partido, division=division, manager=manager, usado__isnull=True
+                ).update(caduca=timezone.now())
+                emergency_code = f'{secrets.randbelow(1000000):06d}'
+                CodigoEmergenciaVIP.objects.create(
+                    partido=partido,
+                    division=division,
+                    manager=manager,
+                    codigo_hash=make_password(emergency_code),
+                    caduca=timezone.now() + timedelta(minutes=15),
+                    creado_por=request.user,
+                )
+                message = f'CÓDIGO DE EMERGENCIA · {manager} · {division}: {emergency_code} · Caduca en 15 minutos y solo puede usarse una vez.'
     partidos = list(PartidoVIP.objects.prefetch_related('votos').order_by('-creado'))
     manager_points = {}
     for registro in JornadaRegistro.objects.all():
@@ -362,12 +385,31 @@ def vip_vote(request, partido_id):
             message = 'El correo no coincide con el registrado para ese manager.'
         elif action == 'vote':
             verification = request.session.get(f'vip_code_{partido.id}', {})
-            valid = verification.get('division') == selected_division and verification.get('manager') == selected_manager and verification.get('code') == request.POST.get('code', '').strip() and verification.get('expires', '') > timezone.now().isoformat()
+            submitted_code = request.POST.get('code', '').strip()
+            valid = verification.get('division') == selected_division and verification.get('manager') == selected_manager and verification.get('code') == submitted_code and verification.get('expires', '') > timezone.now().isoformat()
+            emergency_record = None
+            if not valid:
+                candidates = CodigoEmergenciaVIP.objects.filter(
+                    partido=partido,
+                    division=selected_division,
+                    manager=selected_manager,
+                    usado__isnull=True,
+                    caduca__gt=timezone.now(),
+                )
+                emergency_record = next((item for item in candidates if check_password(submitted_code, item.codigo_hash)), None)
+                valid = emergency_record is not None
             if not valid:
                 message = 'El código no es correcto o ha caducado. Solicita uno nuevo.'
                 verification_sent = True
             elif selected_manager in LEAGUE_MANAGERS.get(selected_division, []):
+                if emergency_record and existing_vote:
+                    message = 'Este manager ya había votado. El código de emergencia no permite emitir un segundo voto.'
+                    verification_sent = True
+                    return render(request, 'vip_vote.html', {'partido': partido, 'league_managers': LEAGUE_MANAGERS, 'selected_division': selected_division, 'selected_manager': selected_manager, 'verification_sent': verification_sent, 'message': message, 'existing_vote': existing_vote, 'position_votes': position_votes})
                 existing_vote, created = VotoPartidoVIP.objects.update_or_create(partido=partido, division=selected_division, manager=selected_manager, defaults={'posicionamiento': request.POST.get('posicionamiento'), 'pronostico_goles': request.POST.get('pronostico_goles')})
+                if emergency_record:
+                    emergency_record.usado = timezone.now()
+                    emergency_record.save(update_fields=['usado'])
                 contact = ContactoManager.objects.filter(division=selected_division, manager=selected_manager).first()
                 if contact and contact.email:
                     EmailMessage(subject=f'Voto confirmado — {partido.titulo}', body=f'Hola {selected_manager}. Tu voto para {partido.titulo} ha quedado registrado correctamente.', to=[contact.email]).send(fail_silently=True)
