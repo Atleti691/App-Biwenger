@@ -315,6 +315,7 @@ def vip_matches(request):
         return redirect('/')
     is_admin = request.user.username.casefold() == 'atleti69' or access.role == 'admin'
     can_create_vip = is_admin or access.role == 'collaborator'
+    can_follow_vip = can_create_vip
     message = ''
     emergency_code_info = None
     if request.method == 'POST':
@@ -461,7 +462,7 @@ def vip_matches(request):
         partido.vote_url = request.build_absolute_uri(f'/partidos-vip/votar/{partido.id}/')
         partido.votacion_finalizada = partido.cerrado or timezone.now() > partido.fecha_cierre
         partido.participantes = partido.votos.count()
-        if is_admin:
+        if can_follow_vip:
             voted_by_division = {}
             for vote in partido.votos.all():
                 voted_by_division.setdefault(vote.division, {})[vote.manager] = vote
@@ -488,7 +489,7 @@ def vip_matches(request):
         for winner in partido.acertantes_goles:
             penalties = winner.penalizaciones_objetivo or ({winner.objetivo_penalizacion: 50} if winner.objetivo_penalizacion else {})
             winner.penalty_distribution = list(penalties.items())
-    return render(request, 'vip_matches.html', {'partidos': partidos, 'is_admin': is_admin, 'can_create_vip': can_create_vip, 'message': message, 'divisions': LEAGUE_MANAGERS.keys(), 'emergency_code_info': emergency_code_info})
+    return render(request, 'vip_matches.html', {'partidos': partidos, 'is_admin': is_admin, 'can_create_vip': can_create_vip, 'can_follow_vip': can_follow_vip, 'message': message, 'divisions': LEAGUE_MANAGERS.keys(), 'emergency_code_info': emergency_code_info})
 
 
 def vip_penalty_choice(request, token):
