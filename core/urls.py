@@ -1,6 +1,6 @@
 from django.contrib.auth.views import LogoutView
 from django.urls import path
-from .views import AppLoginView, change_password, communications, contact_form, dashboard, home, jornada_api, matches_api, origins, public_home, setup_collaborators, statistics, statistics_api, tournaments, vip_matches, vip_vote
+from .views import AppLoginView, change_password, communications, contact_form, dashboard, home, jornada_api, matches_api, origins, public_home, setup_collaborators, statistics, statistics_api, tournaments, vip_matches, vip_statistics, vip_vote
 
 urlpatterns = [
     path('', home, name='home'),
@@ -13,6 +13,7 @@ urlpatterns = [
     path('actualizar-contacto/', contact_form, name='contact_form'),
     path('datos/', dashboard, name='dashboard'),
     path('estadisticas/', statistics, name='statistics'),
+    path('estadisticas/partidos-vip/', vip_statistics, name='vip_statistics'),
     path('login/', AppLoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(next_page='/login/'), name='logout'),
     path('cambiar-contrasena/', change_password, name='change_password'),

@@ -20,6 +20,8 @@
 <form method="post">{% csrf_token %}<input type="hidden" name="action" value="create">
 <label>Título</label>
 <input name="titulo" placeholder="Derbi madrileño" required>
+<label>Jornada a la que pertenece el partido VIP</label>
+<input name="jornada" type="number" min="1" max="38" placeholder="Ejemplo: 7" required>
 <div class="grid">
 <div>
 <label>Equipo local</label>
@@ -71,6 +73,7 @@
 {% for partido in partidos %}{% if partido.votacion_finalizada %}
 <div class="match" style="margin-top:14px">
 <h3>{{ partido.titulo }}</h3>
+<p><strong>Jornada {{ partido.jornada|default:'Sin asignar' }}</strong></p>
 {% if not partido.cerrado %}<div style="margin:12px 0;padding:14px;background:#fff3e8;border:2px solid #e77929;border-radius:10px"><strong>🏁 Cerrar y calcular el partido VIP</strong><p style="margin:6px 0 10px">Introduce la suma total de goles marcados por los dos equipos.</p><form method="post" class="actions">{% csrf_token %}<input type="hidden" name="partido_id" value="{{ partido.id }}"><input name="goles_reales" type="number" min="0" placeholder="Goles totales reales" required style="width:190px;margin:0"><button name="action" value="close">Cerrar y calcular</button></form></div>{% else %}<p class="voted">✅ Partido cerrado y calculado: {{ partido.goles_reales }} goles totales.</p>{% endif %}
 {% for estado in partido.estado_divisiones %}
 <div class="division-status"><h4>{{ estado.division }}</h4>

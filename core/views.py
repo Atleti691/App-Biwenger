@@ -277,6 +277,7 @@ def vip_matches(request):
                 visitante = request.POST.get('equipo_visitante', '').strip()
                 PartidoVIP.objects.create(
                     titulo=request.POST.get('titulo', '').strip(),
+                    jornada=max(1, min(38, int(request.POST['jornada']))),
                     equipo_local=local,
                     equipo_visitante=visitante,
                     escudo_local=request.POST.get('escudo_local', '').strip() or get_team_logo(local),
@@ -367,12 +368,16 @@ def vip_matches(request):
                 }
                 message = f'CÓDIGO DE EMERGENCIA · {manager} · {division}: {emergency_code} · Caduca en 15 minutos y solo puede usarse una vez.'
     partidos = list(PartidoVIP.objects.prefetch_related('votos').order_by('-creado'))
-    manager_points = {}
-    for registro in JornadaRegistro.objects.all():
-        for manager, row in (registro.datos or {}).items():
-            total = int(row.get('app') or 0) + int(row.get('q') or 0) * 5 + int(row.get('p') or 0) * 10 - int(row.get('penalty') or 0)
-            manager_points[(registro.division, manager)] = manager_points.get((registro.division, manager), 0) + total
     for partido in partidos:
+        manager_points = {}
+        registros_jornada = JornadaRegistro.objects.filter(jornada=partido.jornada) if partido.jornada else JornadaRegistro.objects.none()
+        for registro in registros_jornada:
+            for manager, row in (registro.datos or {}).items():
+                total = int(row.get('app') or 0) + int(row.get('q') or 0) * 5 + int(row.get('p') or 0) * 10 - int(row.get('penalty') or 0)
+                manager_points[(registro.division, manager)] = total
+        partido.puntos_jornada_disponibles = bool(partido.jornada) and all(
+            registros_jornada.filter(division=division, cerrada=True).exists() for division in LEAGUE_MANAGERS
+        )
         logo_fields = []
         preferred_local = get_preferred_team_logo(partido.equipo_local)
         preferred_visitante = get_preferred_team_logo(partido.equipo_visitante)
@@ -409,7 +414,7 @@ def vip_matches(request):
             ]
         groups = {'local': [], 'visitante': []}
         for vote in partido.votos.all():
-            if vote.posicionamiento in groups:
+            if partido.puntos_jornada_disponibles and vote.posicionamiento in groups and (vote.division, vote.manager) in manager_points:
                 groups[vote.posicionamiento].append(manager_points.get((vote.division, vote.manager), 0))
         partido.media_local = round(sum(groups['local']) / len(groups['local']), 2) if groups['local'] else None
         partido.media_visitante = round(sum(groups['visitante']) / len(groups['visitante']), 2) if groups['visitante'] else None
@@ -551,6 +556,38 @@ def tournaments(request):
 def statistics(request):
     divisions = ['Primera División', 'Segunda División', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
     return render(request, 'statistics.html', {'divisions': divisions, 'jornadas': range(1, 39)})
+
+
+@login_required
+def vip_statistics(request):
+    panels = []
+    for partido in PartidoVIP.objects.prefetch_related('votos').order_by('-creado'):
+        divisions = []
+        for division, managers in LEAGUE_MANAGERS.items():
+            votes = list(partido.votos.filter(division=division))
+            total = len(votes)
+            positions = {key: sum(v.posicionamiento == key for v in votes) for key in ('local', 'visitante', 'ninguno')}
+            goals = {key: sum(v.pronostico_goles == key for v in votes) for key in ('0', '1', '2', '3+')}
+            targets = {}
+            for vote in votes:
+                if vote.objetivo_penalizacion:
+                    targets[vote.objetivo_penalizacion] = targets.get(vote.objetivo_penalizacion, 0) + 1
+            divisions.append({
+                'name': division,
+                'votes': total,
+                'total': len(managers),
+                'percentage': round(total * 100 / len(managers)) if managers else 0,
+                'positions': positions,
+                'goals': [
+                    {'label': '0 goles', 'count': goals['0']},
+                    {'label': '1 gol', 'count': goals['1']},
+                    {'label': '2 goles', 'count': goals['2']},
+                    {'label': '3 o más', 'count': goals['3+']},
+                ],
+                'targets': sorted(targets.items(), key=lambda item: (-item[1], item[0])),
+            })
+        panels.append({'match': partido, 'divisions': divisions})
+    return render(request, 'vip_statistics.html', {'panels': panels})
 
 
 @login_required

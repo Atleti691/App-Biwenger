@@ -86,6 +86,7 @@ class ContactoManager(models.Model):
 
 class PartidoVIP(models.Model):
     titulo = models.CharField(max_length=140)
+    jornada = models.PositiveSmallIntegerField(null=True, blank=True)
     equipo_local = models.CharField(max_length=80)
     equipo_visitante = models.CharField(max_length=80)
     escudo_local = models.URLField(blank=True)
