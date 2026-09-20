@@ -32,7 +32,7 @@ def send_vip_penalty_links(request, partido, votes):
             continue
         token = signing.dumps({'partido': partido.id, 'division': vote.division, 'manager': vote.manager}, salt='vip-penalty')
         url = request.build_absolute_uri(f'/partidos-vip/penalizacion/{token}/')
-        messages.append(EmailMessage(subject=f'Premio por acertar los goles — {partido.titulo}', body=(f'Hola {vote.manager}.\n\nHas acertado el número de goles de {partido.titulo}. Puedes elegir a qué manager de tu división restar 50 puntos:\n{url}\n\nSolo podrás realizar esta elección una vez.'), to=[email], connection=connection))
+        messages.append(EmailMessage(subject=f'Premio por acertar los goles — {partido.titulo}', body=(f'Hola {vote.manager}.\n\nHas acertado el número de goles de {partido.titulo}. Puedes repartir hasta 50 puntos de penalización entre uno o varios managers de tu división:\n{url}\n\nSolo podrás realizar esta elección una vez.'), to=[email], connection=connection))
     return connection.send_messages(messages) if messages else 0
 
 
@@ -61,9 +61,10 @@ def vip_adjustments_for_journey(jornada):
             adjustments[key] = adjustments.get(key, 0) - 10
             if winner and vote.posicionamiento == winner:
                 adjustments[key] += 100
-            if vote.objetivo_penalizacion:
-                target_key = (vote.division, vote.objetivo_penalizacion)
-                adjustments[target_key] = adjustments.get(target_key, 0) - 50
+            penalties = vote.penalizaciones_objetivo or ({vote.objetivo_penalizacion: 50} if vote.objetivo_penalizacion else {})
+            for target, points in penalties.items():
+                target_key = (vote.division, target)
+                adjustments[target_key] = adjustments.get(target_key, 0) - int(points or 0)
     return adjustments
 
 EDIT_DIVISIONS = {
@@ -359,7 +360,7 @@ def vip_matches(request):
             partido.goles_reales = max(0, int(request.POST.get('goles_reales', 0)))
             partido.cerrado = True
             partido.save(update_fields=['goles_reales', 'cerrado'])
-            winners = list(partido.votos.filter(pronostico_goles=partido.opcion_goles_real, objetivo_penalizacion=''))
+            winners = list(partido.votos.filter(pronostico_goles=partido.opcion_goles_real, objetivo_penalizacion='', penalizaciones_objetivo={}))
             try:
                 sent = send_vip_penalty_links(request, partido, winners)
                 message = f'Partido cerrado. Hay {len(winners)} acertantes y se enviaron {sent} correos para elegir la penalización.'
@@ -368,7 +369,7 @@ def vip_matches(request):
                 message = f'Partido cerrado. Hay {len(winners)} acertantes, pero no se pudieron enviar sus correos.'
         elif action == 'remind_penalty' and is_admin:
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'), cerrado=True)
-            winners = list(partido.votos.filter(pronostico_goles=partido.opcion_goles_real, objetivo_penalizacion=''))
+            winners = list(partido.votos.filter(pronostico_goles=partido.opcion_goles_real, objetivo_penalizacion='', penalizaciones_objetivo={}))
             try:
                 sent = send_vip_penalty_links(request, partido, winners)
                 message = f'Recordatorio enviado a {sent} de {len(winners)} acertantes pendientes.'
@@ -484,6 +485,9 @@ def vip_matches(request):
         if partido.media_local is not None and partido.media_visitante is not None and partido.media_local != partido.media_visitante:
             partido.ganador_posicionamiento = 'local' if partido.media_local > partido.media_visitante else 'visitante'
         partido.acertantes_goles = [v for v in partido.votos.all() if partido.cerrado and v.pronostico_goles == partido.opcion_goles_real]
+        for winner in partido.acertantes_goles:
+            penalties = winner.penalizaciones_objetivo or ({winner.objetivo_penalizacion: 50} if winner.objetivo_penalizacion else {})
+            winner.penalty_distribution = list(penalties.items())
     return render(request, 'vip_matches.html', {'partidos': partidos, 'is_admin': is_admin, 'can_create_vip': can_create_vip, 'message': message, 'divisions': LEAGUE_MANAGERS.keys(), 'emergency_code_info': emergency_code_info})
 
 
@@ -497,25 +501,47 @@ def vip_penalty_choice(request, token):
     division = identity.get('division', '')
     manager = identity.get('manager', '')
     vote = get_object_or_404(VotoPartidoVIP, partido=partido, division=division, manager=manager, pronostico_goles=partido.opcion_goles_real)
-    if request.method == 'POST' and not vote.objetivo_penalizacion:
-        target = request.POST.get('target', '')
-        if target == manager or target not in LEAGUE_MANAGERS.get(division, []):
-            message = 'Selecciona un manager válido de tu división.'
+    managers = [name for name in LEAGUE_MANAGERS.get(division, []) if name != manager]
+    received = {name: 0 for name in managers}
+    for other_vote in VotoPartidoVIP.objects.filter(partido=partido, division=division):
+        penalties = other_vote.penalizaciones_objetivo or ({other_vote.objetivo_penalizacion: 50} if other_vote.objetivo_penalizacion else {})
+        for target, points in penalties.items():
+            received[target] = received.get(target, 0) + int(points or 0)
+    if request.method == 'POST' and not vote.penalizaciones_objetivo and not vote.objetivo_penalizacion:
+        allocations = {}
+        invalid_amount = False
+        for index, target in enumerate(managers):
+            raw = request.POST.get(f'points_{index}', '0').strip() or '0'
+            try:
+                points = int(raw)
+            except ValueError:
+                invalid_amount = True
+                break
+            if points < 0 or points > 50:
+                invalid_amount = True
+                break
+            if points:
+                allocations[target] = points
+        total = sum(allocations.values())
+        if invalid_amount or total > 50:
+            message = 'Revisa las cantidades: deben ser números enteros y sumar como máximo 50 puntos.'
+        elif total <= 0:
+            message = 'Debes repartir al menos 1 punto.'
+        elif any(received.get(target, 0) + points > 150 for target, points in allocations.items()):
+            message = 'Alguno de los managers superaría el máximo acumulado de 150 puntos. Reduce esa cantidad.'
         else:
             with transaction.atomic():
                 locked_vote = VotoPartidoVIP.objects.select_for_update().get(pk=vote.pk)
-                received = VotoPartidoVIP.objects.select_for_update().filter(partido=partido, division=division, objetivo_penalizacion=target).count()
-                if locked_vote.objetivo_penalizacion:
-                    message = 'Esta elección ya estaba registrada y no puede modificarse.'
-                elif received >= 3:
-                    message = f'{target} ya ha alcanzado el máximo de 150 puntos. Elige otro manager.'
+                if locked_vote.penalizaciones_objetivo or locked_vote.objetivo_penalizacion:
+                    message = 'Este reparto ya estaba registrado y no puede modificarse.'
                 else:
-                    locked_vote.objetivo_penalizacion = target
-                    locked_vote.save(update_fields=['objetivo_penalizacion', 'actualizado'])
+                    locked_vote.penalizaciones_objetivo = allocations
+                    locked_vote.save(update_fields=['penalizaciones_objetivo', 'actualizado'])
                     vote = locked_vote
-                    message = f'Elección guardada: {target} recibirá una penalización de 50 puntos.'
-    available = [name for name in LEAGUE_MANAGERS.get(division, []) if name != manager and VotoPartidoVIP.objects.filter(partido=partido, division=division, objetivo_penalizacion=name).count() < 3]
-    return render(request, 'vip_penalty_choice.html', {'partido': partido, 'division': division, 'manager': manager, 'vote': vote, 'available': available, 'message': message, 'invalid': False})
+                    message = f'Reparto guardado correctamente: {total} puntos en total.'
+    available = [{'name': name, 'received': received.get(name, 0), 'remaining': max(0, 150 - received.get(name, 0))} for name in managers]
+    saved_penalties = vote.penalizaciones_objetivo or ({vote.objetivo_penalizacion: 50} if vote.objetivo_penalizacion else {})
+    return render(request, 'vip_penalty_choice.html', {'partido': partido, 'division': division, 'manager': manager, 'vote': vote, 'available': available, 'saved_penalties': saved_penalties, 'message': message, 'invalid': False})
 
 
 def vip_vote(request, partido_id):
@@ -663,8 +689,9 @@ def vip_statistics(request):
             goals = {key: sum(v.pronostico_goles == key for v in votes) for key in ('0', '1', '2', '3+')}
             targets = {}
             for vote in votes:
-                if vote.objetivo_penalizacion:
-                    targets[vote.objetivo_penalizacion] = targets.get(vote.objetivo_penalizacion, 0) + 1
+                penalties = vote.penalizaciones_objetivo or ({vote.objetivo_penalizacion: 50} if vote.objetivo_penalizacion else {})
+                for target, points in penalties.items():
+                    targets[target] = targets.get(target, 0) + int(points or 0)
             divisions.append({
                 'name': division,
                 'votes': total,

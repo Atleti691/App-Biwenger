@@ -115,6 +115,7 @@ class VotoPartidoVIP(models.Model):
     posicionamiento = models.CharField(max_length=12, choices=POSITION_CHOICES)
     pronostico_goles = models.CharField(max_length=2, choices=GOAL_CHOICES)
     objetivo_penalizacion = models.CharField(max_length=120, blank=True)
+    penalizaciones_objetivo = models.JSONField(default=dict, blank=True)
     origen = models.CharField(max_length=20, default='usuario')
     registrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='votos_vip_registrados')
     creado = models.DateTimeField(auto_now_add=True)
