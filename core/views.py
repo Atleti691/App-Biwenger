@@ -501,6 +501,25 @@ def vip_penalty_choice(request, token):
     division = identity.get('division', '')
     manager = identity.get('manager', '')
     vote = get_object_or_404(VotoPartidoVIP, partido=partido, division=division, manager=manager, pronostico_goles=partido.opcion_goles_real)
+    standings = {name: 0 for name in LEAGUE_MANAGERS.get(division, [])}
+    seen_journeys = set()
+    records = []
+    for record in JornadaRegistro.objects.filter(division=division).order_by('jornada', '-updated_at'):
+        if record.jornada not in seen_journeys:
+            records.append(record)
+            seen_journeys.add(record.jornada)
+    for record in records:
+        vip_adjustments = vip_adjustments_for_journey(record.jornada)
+        for name, values in (record.datos or {}).items():
+            app = int(values.get('app') or 0)
+            quinielas = int(values.get('q') or 0)
+            porras = int(values.get('p') or 0)
+            penalty = int(values.get('penalty') or 0)
+            standings[name] = standings.get(name, 0) + app + quinielas * 5 + porras * 10 - penalty + vip_adjustments.get((division, name), 0)
+    general_standings = [
+        {'position': position, 'manager': name, 'points': points}
+        for position, (name, points) in enumerate(sorted(standings.items(), key=lambda item: (-item[1], item[0].casefold())), start=1)
+    ]
     managers = [name for name in LEAGUE_MANAGERS.get(division, []) if name != manager]
     received = {name: 0 for name in managers}
     for other_vote in VotoPartidoVIP.objects.filter(partido=partido, division=division):
@@ -541,7 +560,7 @@ def vip_penalty_choice(request, token):
                     message = f'Reparto guardado correctamente: {total} puntos en total.'
     available = [{'name': name, 'received': received.get(name, 0), 'remaining': max(0, 150 - received.get(name, 0))} for name in managers]
     saved_penalties = vote.penalizaciones_objetivo or ({vote.objetivo_penalizacion: 50} if vote.objetivo_penalizacion else {})
-    return render(request, 'vip_penalty_choice.html', {'partido': partido, 'division': division, 'manager': manager, 'vote': vote, 'available': available, 'saved_penalties': saved_penalties, 'message': message, 'invalid': False})
+    return render(request, 'vip_penalty_choice.html', {'partido': partido, 'division': division, 'manager': manager, 'vote': vote, 'available': available, 'saved_penalties': saved_penalties, 'general_standings': general_standings, 'message': message, 'invalid': False})
 
 
 def vip_vote(request, partido_id):
