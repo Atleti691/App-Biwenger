@@ -5,10 +5,12 @@ import logging
 
 from django.contrib.auth import get_user_model, login, logout
 from django.contrib.auth.hashers import check_password, make_password
+from django.core import signing
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.mail import EmailMessage, get_connection
+from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -18,6 +20,51 @@ from .models import CambioRegistro, CodigoEmergenciaVIP, ContactoManager, Jornad
 from .services.openligadb import get_matches, get_preferred_team_logo, get_team_logo
 
 logger = logging.getLogger(__name__)
+
+
+def send_vip_penalty_links(request, partido, votes):
+    contacts = {(c.division, c.manager): c.email.strip() for c in ContactoManager.objects.exclude(email='')}
+    connection = get_connection(fail_silently=False)
+    messages = []
+    for vote in votes:
+        email = contacts.get((vote.division, vote.manager))
+        if not email:
+            continue
+        token = signing.dumps({'partido': partido.id, 'division': vote.division, 'manager': vote.manager}, salt='vip-penalty')
+        url = request.build_absolute_uri(f'/partidos-vip/penalizacion/{token}/')
+        messages.append(EmailMessage(subject=f'Premio por acertar los goles — {partido.titulo}', body=(f'Hola {vote.manager}.\n\nHas acertado el número de goles de {partido.titulo}. Puedes elegir a qué manager de tu división restar 50 puntos:\n{url}\n\nSolo podrás realizar esta elección una vez.'), to=[email], connection=connection))
+    return connection.send_messages(messages) if messages else 0
+
+
+def vip_adjustments_for_journey(jornada):
+    adjustments = {}
+    records = {}
+    for record in JornadaRegistro.objects.filter(jornada=jornada).order_by('division', '-updated_at'):
+        records.setdefault(record.division, record)
+    if not all(records.get(division) and records[division].cerrada for division in LEAGUE_MANAGERS):
+        return adjustments
+    base_points = {}
+    for division, record in records.items():
+        for manager, row in (record.datos or {}).items():
+            base_points[(division, manager)] = int(row.get('app') or 0) + int(row.get('q') or 0) * 5 + int(row.get('p') or 0) * 10 - int(row.get('penalty') or 0)
+    for partido in PartidoVIP.objects.filter(jornada=jornada, cerrado=True).prefetch_related('votos'):
+        groups = {'local': [], 'visitante': []}
+        for vote in partido.votos.all():
+            if vote.posicionamiento in groups and (vote.division, vote.manager) in base_points:
+                groups[vote.posicionamiento].append(base_points[(vote.division, vote.manager)])
+        averages = {key: (sum(values) / len(values) if values else None) for key, values in groups.items()}
+        winner = ''
+        if averages['local'] is not None and averages['visitante'] is not None and averages['local'] != averages['visitante']:
+            winner = 'local' if averages['local'] > averages['visitante'] else 'visitante'
+        for vote in partido.votos.all():
+            key = (vote.division, vote.manager)
+            adjustments[key] = adjustments.get(key, 0) - 10
+            if winner and vote.posicionamiento == winner:
+                adjustments[key] += 100
+            if vote.objetivo_penalizacion:
+                target_key = (vote.division, vote.objetivo_penalizacion)
+                adjustments[target_key] = adjustments.get(target_key, 0) - 50
+    return adjustments
 
 EDIT_DIVISIONS = {
     'Atleti69': {'*'},
@@ -312,7 +359,22 @@ def vip_matches(request):
             partido.goles_reales = max(0, int(request.POST.get('goles_reales', 0)))
             partido.cerrado = True
             partido.save(update_fields=['goles_reales', 'cerrado'])
-            message = 'Partido cerrado y resultados calculados.'
+            winners = list(partido.votos.filter(pronostico_goles=partido.opcion_goles_real, objetivo_penalizacion=''))
+            try:
+                sent = send_vip_penalty_links(request, partido, winners)
+                message = f'Partido cerrado. Hay {len(winners)} acertantes y se enviaron {sent} correos para elegir la penalización.'
+            except Exception:
+                logger.exception('No se pudieron enviar los premios VIP de %s', partido.titulo)
+                message = f'Partido cerrado. Hay {len(winners)} acertantes, pero no se pudieron enviar sus correos.'
+        elif action == 'remind_penalty' and is_admin:
+            partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'), cerrado=True)
+            winners = list(partido.votos.filter(pronostico_goles=partido.opcion_goles_real, objetivo_penalizacion=''))
+            try:
+                sent = send_vip_penalty_links(request, partido, winners)
+                message = f'Recordatorio enviado a {sent} de {len(winners)} acertantes pendientes.'
+            except Exception:
+                logger.exception('No se pudieron recordar los premios VIP de %s', partido.titulo)
+                message = 'No se pudieron enviar los recordatorios a los acertantes.'
         elif action == 'remind' and is_admin:
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'))
             voted = set(partido.votos.values_list('division', 'manager'))
@@ -423,6 +485,37 @@ def vip_matches(request):
             partido.ganador_posicionamiento = 'local' if partido.media_local > partido.media_visitante else 'visitante'
         partido.acertantes_goles = [v for v in partido.votos.all() if partido.cerrado and v.pronostico_goles == partido.opcion_goles_real]
     return render(request, 'vip_matches.html', {'partidos': partidos, 'is_admin': is_admin, 'can_create_vip': can_create_vip, 'message': message, 'divisions': LEAGUE_MANAGERS.keys(), 'emergency_code_info': emergency_code_info})
+
+
+def vip_penalty_choice(request, token):
+    message = ''
+    try:
+        identity = signing.loads(token, salt='vip-penalty', max_age=60 * 60 * 24 * 14)
+    except (signing.BadSignature, signing.SignatureExpired):
+        return render(request, 'vip_penalty_choice.html', {'invalid': True})
+    partido = get_object_or_404(PartidoVIP, pk=identity.get('partido'), cerrado=True)
+    division = identity.get('division', '')
+    manager = identity.get('manager', '')
+    vote = get_object_or_404(VotoPartidoVIP, partido=partido, division=division, manager=manager, pronostico_goles=partido.opcion_goles_real)
+    if request.method == 'POST' and not vote.objetivo_penalizacion:
+        target = request.POST.get('target', '')
+        if target == manager or target not in LEAGUE_MANAGERS.get(division, []):
+            message = 'Selecciona un manager válido de tu división.'
+        else:
+            with transaction.atomic():
+                locked_vote = VotoPartidoVIP.objects.select_for_update().get(pk=vote.pk)
+                received = VotoPartidoVIP.objects.select_for_update().filter(partido=partido, division=division, objetivo_penalizacion=target).count()
+                if locked_vote.objetivo_penalizacion:
+                    message = 'Esta elección ya estaba registrada y no puede modificarse.'
+                elif received >= 3:
+                    message = f'{target} ya ha alcanzado el máximo de 150 puntos. Elige otro manager.'
+                else:
+                    locked_vote.objetivo_penalizacion = target
+                    locked_vote.save(update_fields=['objetivo_penalizacion', 'actualizado'])
+                    vote = locked_vote
+                    message = f'Elección guardada: {target} recibirá una penalización de 50 puntos.'
+    available = [name for name in LEAGUE_MANAGERS.get(division, []) if name != manager and VotoPartidoVIP.objects.filter(partido=partido, division=division, objetivo_penalizacion=name).count() < 3]
+    return render(request, 'vip_penalty_choice.html', {'partido': partido, 'division': division, 'manager': manager, 'vote': vote, 'available': available, 'message': message, 'invalid': False})
 
 
 def vip_vote(request, partido_id):
@@ -612,8 +705,9 @@ def statistics_api(request, season, jornada):
             seen.add(record.jornada)
     totals, clause_links = {}, {}
     for record in records:
+        vip_adjustments = vip_adjustments_for_journey(record.jornada)
         for manager, values in record.datos.items():
-            row = totals.setdefault(manager, {'manager': manager, 'app': 0, 'quinielas': 0, 'porras': 0, 'bonus': 0, 'money': 0, 'penalty': 0, 'total': 0})
+            row = totals.setdefault(manager, {'manager': manager, 'app': 0, 'quinielas': 0, 'porras': 0, 'bonus': 0, 'money': 0, 'penalty': 0, 'vip': 0, 'total': 0})
             app = int(values.get('app') or 0)
             quinielas = int(values.get('q') or 0)
             porras = int(values.get('p') or 0)
@@ -626,7 +720,9 @@ def statistics_api(request, season, jornada):
             row['bonus'] += bonus
             row['money'] += money
             row['penalty'] += penalty
-            row['total'] += app + bonus - penalty
+            vip = vip_adjustments.get((record.division, manager), 0)
+            row['vip'] += vip
+            row['total'] += app + bonus - penalty + vip
             for clause in values.get('clauses', []):
                 if not isinstance(clause, dict):
                     continue
