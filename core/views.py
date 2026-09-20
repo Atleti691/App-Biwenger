@@ -67,6 +67,46 @@ def vip_adjustments_for_journey(jornada):
                 adjustments[target_key] = adjustments.get(target_key, 0) - int(points or 0)
     return adjustments
 
+
+def vip_breakdown_for_journey(jornada, division):
+    """Return the two visible VIP concepts for one division and journey."""
+    partidos = PartidoVIP.objects.filter(jornada=jornada).prefetch_related('votos')
+    has_vip = partidos.exists()
+    positioning = {manager: 0 for manager in LEAGUE_MANAGERS.get(division, [])}
+    penalties = {manager: 0 for manager in LEAGUE_MANAGERS.get(division, [])}
+    if not has_vip:
+        return False, positioning, penalties
+    records = {}
+    for record in JornadaRegistro.objects.filter(jornada=jornada).order_by('division', '-updated_at'):
+        records.setdefault(record.division, record)
+    all_closed = all(records.get(name) and records[name].cerrada for name in LEAGUE_MANAGERS)
+    base_points = {}
+    if all_closed:
+        for division_name, record in records.items():
+            for manager, row in (record.datos or {}).items():
+                base_points[(division_name, manager)] = int(row.get('app') or 0) + int(row.get('q') or 0) * 5 + int(row.get('p') or 0) * 10 - int(row.get('penalty') or 0)
+    for partido in partidos.filter(cerrado=True):
+        votes = list(partido.votos.all())
+        groups = {'local': [], 'visitante': []}
+        if all_closed:
+            for vote in votes:
+                if vote.posicionamiento in groups and (vote.division, vote.manager) in base_points:
+                    groups[vote.posicionamiento].append(base_points[(vote.division, vote.manager)])
+        averages = {key: (sum(values) / len(values) if values else None) for key, values in groups.items()}
+        winner = ''
+        if averages['local'] is not None and averages['visitante'] is not None and averages['local'] != averages['visitante']:
+            winner = 'local' if averages['local'] > averages['visitante'] else 'visitante'
+        for vote in votes:
+            if vote.division == division and all_closed:
+                positioning[vote.manager] = positioning.get(vote.manager, 0) - 10
+                if winner and vote.posicionamiento == winner:
+                    positioning[vote.manager] += 100
+            distributed = vote.penalizaciones_objetivo or ({vote.objetivo_penalizacion: 50} if vote.objetivo_penalizacion else {})
+            if vote.division == division:
+                for target, points in distributed.items():
+                    penalties[target] = penalties.get(target, 0) - int(points or 0)
+    return True, positioning, penalties
+
 EDIT_DIVISIONS = {
     'Atleti69': {'*'},
     'Kabes Team': {'Primera División', 'Liga Moeve'},
@@ -982,10 +1022,11 @@ def jornada_api(request, season, jornada):
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Datos no válidos'}, status=400)
     if request.method == 'GET':
+        has_vip, vip_positioning, vip_penalties = vip_breakdown_for_journey(jornada, division)
         registro = JornadaRegistro.objects.filter(season=season, jornada=jornada, division=division).order_by('-updated_at').first()
         if not registro:
-            return JsonResponse({'datos': {}, 'cerrada': False})
-        return JsonResponse({'datos': registro.datos, 'cerrada': registro.cerrada})
+            return JsonResponse({'datos': {}, 'cerrada': False, 'has_vip': has_vip, 'vip_positioning': vip_positioning, 'vip_penalties': vip_penalties})
+        return JsonResponse({'datos': registro.datos, 'cerrada': registro.cerrada, 'has_vip': has_vip, 'vip_positioning': vip_positioning, 'vip_penalties': vip_penalties})
     registro, _ = JornadaRegistro.objects.get_or_create(user_access=access, season=season, jornada=jornada, division=division)
     if request.method == 'POST':
         allowed = fixed_edit_divisions(request.user.username)

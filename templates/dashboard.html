@@ -163,4 +163,27 @@ document.getElementById('clause-modal').addEventListener('focusout',event=>{
 });
 rows.addEventListener('click',event=>{if(event.target.classList.contains('clauses'))setTimeout(()=>document.querySelectorAll('.cl-value').forEach(input=>{input.type='text';input.inputMode='numeric';const value=Number(digits(input.value));input.value=value?value.toLocaleString('es-ES')+' €':''}),0)});
 document.getElementById('save-clauses').addEventListener('click',()=>document.querySelectorAll('.cl-value').forEach(input=>input.value=digits(input.value)),true);
+</script><script>
+// Las dos columnas VIP solo aparecen en jornadas que tengan un Partido VIP.
+async function paintVipColumns(){
+  const n=(jornada.value.match(/\d+/)||[1])[0];
+  const response=await fetch('/api/jornada/2026/'+n+'/?division='+encodeURIComponent(division.value));
+  const result=await response.json();
+  document.querySelectorAll('.vip-column').forEach(element=>element.remove());
+  rows.querySelectorAll('tr').forEach(row=>{const net=row.querySelector('.net');if(net?.dataset.baseNet!==undefined)net.textContent=net.dataset.baseNet});
+  if(!result.has_vip)return;
+  const header=document.querySelector('.results-table thead tr'),netHeader=header.lastElementChild;
+  netHeader.insertAdjacentHTML('beforebegin','<th class="vip-column">Resultado<br>Partido VIP</th><th class="vip-column">Penalizaci&oacute;n<br>Partido VIP</th>');
+  rows.querySelectorAll('tr').forEach(row=>{
+    const manager=row.children[1].textContent,positioning=Number(result.vip_positioning?.[manager]||0),penalty=Number(result.vip_penalties?.[manager]||0),net=row.querySelector('.net');
+    const positionClass=positioning<0?'negative':positioning>0?'voted':'',penaltyClass=penalty<0?'negative':'';
+    net.insertAdjacentHTML('beforebegin',`<td class="vip-column calculated ${positionClass}">${positioning}</td><td class="vip-column calculated ${penaltyClass}">${penalty}</td>`);
+    const base=Number(net.textContent)||0;net.dataset.baseNet=base;net.textContent=base+positioning+penalty;net.classList.toggle('negative',Number(net.textContent)<0);
+  });
+}
+const refreshBeforeVipColumns=refresh;
+refresh=async function(){await refreshBeforeVipColumns();await paintVipColumns()};
+division.addEventListener('change',()=>setTimeout(paintVipColumns,0));
+jornada.addEventListener('change',()=>setTimeout(paintVipColumns,0));
+refresh();
 </script></body></html>
