@@ -41,30 +41,35 @@ def vip_adjustments_for_journey(jornada):
     records = {}
     for record in JornadaRegistro.objects.filter(jornada=jornada).order_by('division', '-updated_at'):
         records.setdefault(record.division, record)
-    if not all(records.get(division) and records[division].cerrada for division in LEAGUE_MANAGERS):
-        return adjustments
     base_points = {}
     for division, record in records.items():
+        if not record.cerrada:
+            continue
         for manager, row in (record.datos or {}).items():
             base_points[(division, manager)] = int(row.get('app') or 0) + int(row.get('q') or 0) * 5 + int(row.get('p') or 0) * 10 - int(row.get('penalty') or 0)
     for partido in PartidoVIP.objects.filter(jornada=jornada, cerrado=True).prefetch_related('votos'):
-        groups = {'local': [], 'visitante': []}
-        for vote in partido.votos.all():
-            if vote.posicionamiento in groups and (vote.division, vote.manager) in base_points:
-                groups[vote.posicionamiento].append(base_points[(vote.division, vote.manager)])
-        averages = {key: (sum(values) / len(values) if values else None) for key, values in groups.items()}
-        winner = ''
-        if averages['local'] is not None and averages['visitante'] is not None and averages['local'] != averages['visitante']:
-            winner = 'local' if averages['local'] > averages['visitante'] else 'visitante'
-        for vote in partido.votos.all():
-            key = (vote.division, vote.manager)
-            adjustments[key] = adjustments.get(key, 0) - 10
-            if winner and vote.posicionamiento == winner:
-                adjustments[key] += 100
-            penalties = vote.penalizaciones_objetivo or ({vote.objetivo_penalizacion: 50} if vote.objetivo_penalizacion else {})
-            for target, points in penalties.items():
-                target_key = (vote.division, target)
-                adjustments[target_key] = adjustments.get(target_key, 0) - int(points or 0)
+        votes = list(partido.votos.all())
+        for division in LEAGUE_MANAGERS:
+            division_votes = [vote for vote in votes if vote.division == division]
+            if records.get(division) and records[division].cerrada:
+                groups = {'local': [], 'visitante': []}
+                for vote in division_votes:
+                    if vote.posicionamiento in groups and (division, vote.manager) in base_points:
+                        groups[vote.posicionamiento].append(base_points[(division, vote.manager)])
+                averages = {key: (sum(values) / len(values) if values else None) for key, values in groups.items()}
+                winner = ''
+                if averages['local'] is not None and averages['visitante'] is not None and averages['local'] != averages['visitante']:
+                    winner = 'local' if averages['local'] > averages['visitante'] else 'visitante'
+                for vote in division_votes:
+                    key = (division, vote.manager)
+                    adjustments[key] = adjustments.get(key, 0) - 10
+                    if winner and vote.posicionamiento == winner:
+                        adjustments[key] += 100
+            for vote in division_votes:
+                penalties = vote.penalizaciones_objetivo or ({vote.objetivo_penalizacion: 50} if vote.objetivo_penalizacion else {})
+                for target, points in penalties.items():
+                    target_key = (division, target)
+                    adjustments[target_key] = adjustments.get(target_key, 0) - int(points or 0)
     return adjustments
 
 
@@ -76,35 +81,31 @@ def vip_breakdown_for_journey(jornada, division):
     penalties = {manager: 0 for manager in LEAGUE_MANAGERS.get(division, [])}
     if not has_vip:
         return False, positioning, penalties
-    records = {}
-    for record in JornadaRegistro.objects.filter(jornada=jornada).order_by('division', '-updated_at'):
-        records.setdefault(record.division, record)
-    all_closed = all(records.get(name) and records[name].cerrada for name in LEAGUE_MANAGERS)
+    record = JornadaRegistro.objects.filter(jornada=jornada, division=division).order_by('-updated_at').first()
+    division_closed = bool(record and record.cerrada)
     base_points = {}
-    if all_closed:
-        for division_name, record in records.items():
-            for manager, row in (record.datos or {}).items():
-                base_points[(division_name, manager)] = int(row.get('app') or 0) + int(row.get('q') or 0) * 5 + int(row.get('p') or 0) * 10 - int(row.get('penalty') or 0)
+    if division_closed:
+        for manager, row in (record.datos or {}).items():
+            base_points[manager] = int(row.get('app') or 0) + int(row.get('q') or 0) * 5 + int(row.get('p') or 0) * 10 - int(row.get('penalty') or 0)
     for partido in partidos.filter(cerrado=True):
-        votes = list(partido.votos.all())
+        votes = list(partido.votos.filter(division=division))
         groups = {'local': [], 'visitante': []}
-        if all_closed:
+        if division_closed:
             for vote in votes:
-                if vote.posicionamiento in groups and (vote.division, vote.manager) in base_points:
-                    groups[vote.posicionamiento].append(base_points[(vote.division, vote.manager)])
+                if vote.posicionamiento in groups and vote.manager in base_points:
+                    groups[vote.posicionamiento].append(base_points[vote.manager])
         averages = {key: (sum(values) / len(values) if values else None) for key, values in groups.items()}
         winner = ''
         if averages['local'] is not None and averages['visitante'] is not None and averages['local'] != averages['visitante']:
             winner = 'local' if averages['local'] > averages['visitante'] else 'visitante'
         for vote in votes:
-            if vote.division == division and all_closed:
+            if division_closed:
                 positioning[vote.manager] = positioning.get(vote.manager, 0) - 10
                 if winner and vote.posicionamiento == winner:
                     positioning[vote.manager] += 100
             distributed = vote.penalizaciones_objetivo or ({vote.objetivo_penalizacion: 50} if vote.objetivo_penalizacion else {})
-            if vote.division == division:
-                for target, points in distributed.items():
-                    penalties[target] = penalties.get(target, 0) - int(points or 0)
+            for target, points in distributed.items():
+                penalties[target] = penalties.get(target, 0) - int(points or 0)
     return True, positioning, penalties
 
 EDIT_DIVISIONS = {
@@ -742,6 +743,20 @@ def vip_statistics(request):
         divisions = []
         for division, managers in LEAGUE_MANAGERS.items():
             votes = list(partido.votos.filter(division=division))
+            record = JornadaRegistro.objects.filter(jornada=partido.jornada, division=division).order_by('-updated_at').first() if partido.jornada else None
+            media_local = media_visitante = None
+            positioning_winner = ''
+            if partido.cerrado and record and record.cerrada:
+                manager_points = {
+                    name: int(row.get('app') or 0) + int(row.get('q') or 0) * 5 + int(row.get('p') or 0) * 10 - int(row.get('penalty') or 0)
+                    for name, row in (record.datos or {}).items()
+                }
+                local_points = [manager_points[vote.manager] for vote in votes if vote.posicionamiento == 'local' and vote.manager in manager_points]
+                visitor_points = [manager_points[vote.manager] for vote in votes if vote.posicionamiento == 'visitante' and vote.manager in manager_points]
+                media_local = round(sum(local_points) / len(local_points), 2) if local_points else None
+                media_visitante = round(sum(visitor_points) / len(visitor_points), 2) if visitor_points else None
+                if media_local is not None and media_visitante is not None and media_local != media_visitante:
+                    positioning_winner = partido.equipo_local if media_local > media_visitante else partido.equipo_visitante
             total = len(votes)
             positions = {key: sum(v.posicionamiento == key for v in votes) for key in ('local', 'visitante', 'ninguno')}
             goals = {key: sum(v.pronostico_goles == key for v in votes) for key in ('0', '1', '2', '3+')}
@@ -755,6 +770,10 @@ def vip_statistics(request):
                 'votes': total,
                 'total': len(managers),
                 'percentage': round(total * 100 / len(managers)) if managers else 0,
+                'calculated': bool(partido.cerrado and record and record.cerrada),
+                'media_local': media_local,
+                'media_visitante': media_visitante,
+                'positioning_winner': positioning_winner,
                 'positions': positions,
                 'goals': [
                     {'label': '0 goles', 'count': goals['0']},
