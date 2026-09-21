@@ -85,7 +85,8 @@ def vip_adjustments_for_journey(jornada):
         if not record.cerrada:
             continue
         for manager, row in (record.datos or {}).items():
-            base_points[(division, manager)] = int(row.get('app') or 0) + int(row.get('q') or 0) * 5 + int(row.get('p') or 0) * 10 - int(row.get('penalty') or 0)
+            # La media del posicionamiento VIP se decide exclusivamente con Puntos APP.
+            base_points[(division, manager)] = int(row.get('app') or 0)
     for partido in PartidoVIP.objects.filter(jornada=jornada, cerrado=True).prefetch_related('votos'):
         votes = list(partido.votos.all())
         for division in LEAGUE_MANAGERS:
@@ -125,7 +126,8 @@ def vip_breakdown_for_journey(jornada, division):
     base_points = {}
     if division_closed:
         for manager, row in (record.datos or {}).items():
-            base_points[manager] = int(row.get('app') or 0) + int(row.get('q') or 0) * 5 + int(row.get('p') or 0) * 10 - int(row.get('penalty') or 0)
+            # Quinielas, porras y penalizaciones no intervienen en esta media.
+            base_points[manager] = int(row.get('app') or 0)
     for partido in partidos.filter(cerrado=True):
         votes = list(partido.votos.filter(division=division))
         groups = {'local': [], 'visitante': []}
@@ -579,8 +581,7 @@ def vip_matches(request):
         registros_jornada = JornadaRegistro.objects.filter(jornada=partido.jornada) if partido.jornada else JornadaRegistro.objects.none()
         for registro in registros_jornada:
             for manager, row in (registro.datos or {}).items():
-                total = int(row.get('app') or 0) + int(row.get('q') or 0) * 5 + int(row.get('p') or 0) * 10 - int(row.get('penalty') or 0)
-                manager_points[(registro.division, manager)] = total
+                manager_points[(registro.division, manager)] = int(row.get('app') or 0)
         partido.puntos_jornada_disponibles = bool(partido.jornada) and all(
             registros_jornada.filter(division=division, cerrada=True).exists() for division in LEAGUE_MANAGERS
         )
@@ -848,10 +849,7 @@ def vip_statistics(request):
             media_local = media_visitante = None
             positioning_winner = ''
             if partido.cerrado and record and record.cerrada:
-                manager_points = {
-                    name: int(row.get('app') or 0) + int(row.get('q') or 0) * 5 + int(row.get('p') or 0) * 10 - int(row.get('penalty') or 0)
-                    for name, row in (record.datos or {}).items()
-                }
+                manager_points = {name: int(row.get('app') or 0) for name, row in (record.datos or {}).items()}
                 local_points = [manager_points[vote.manager] for vote in votes if vote.posicionamiento == 'local' and vote.manager in manager_points]
                 visitor_points = [manager_points[vote.manager] for vote in votes if vote.posicionamiento == 'visitante' and vote.manager in manager_points]
                 media_local = round(sum(local_points) / len(local_points), 2) if local_points else None
