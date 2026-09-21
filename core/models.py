@@ -84,6 +84,22 @@ class ContactoManager(models.Model):
         return f'{self.manager} — {self.division}'
 
 
+class ManagerLiga(models.Model):
+    season = models.PositiveIntegerField(default=2026)
+    division = models.CharField(max_length=80)
+    manager = models.CharField(max_length=120)
+    activo = models.BooleanField(default=True)
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('season', 'division', 'manager')
+        ordering = ('division', 'manager')
+
+    def __str__(self):
+        return f'{self.manager} — {self.division} ({self.season})'
+
+
 class PartidoVIP(models.Model):
     titulo = models.CharField(max_length=140)
     jornada = models.PositiveSmallIntegerField(null=True, blank=True)

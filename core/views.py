@@ -16,7 +16,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from .forms import FirstPasswordChangeForm, LoginForm
-from .models import CambioRegistro, CodigoEmergenciaVIP, ContactoManager, JornadaRegistro, PartidoVIP, UserAccess, VotoPartidoVIP
+from .models import CambioRegistro, CodigoEmergenciaVIP, ContactoManager, JornadaRegistro, ManagerLiga, PartidoVIP, UserAccess, VotoPartidoVIP
 from .services.openligadb import get_matches, get_preferred_team_logo, get_team_logo
 
 logger = logging.getLogger(__name__)
@@ -173,6 +173,18 @@ LEAGUE_MANAGERS = {
 }
 
 
+def active_league_managers(season=2026):
+    """Return the editable roster while preserving the established division order."""
+    rows = list(ManagerLiga.objects.filter(season=season, activo=True).values_list('division', 'manager'))
+    roster = {division: [] for division in LEAGUE_MANAGERS}
+    active = {(division, manager) for division, manager in rows}
+    for division, established_managers in LEAGUE_MANAGERS.items():
+        roster[division].extend(manager for manager in established_managers if (division, manager) in active)
+        additions = sorted(manager for row_division, manager in rows if row_division == division and manager not in established_managers)
+        roster[division].extend(additions)
+    return roster
+
+
 def restore_fixed_staff_access(user, access):
     """Keep the administrator and original collaborators out of viewer mode."""
     fixed_staff = {username.casefold(): (username, divisions) for username, divisions in EDIT_DIVISIONS.items()}
@@ -217,7 +229,57 @@ def home(request):
         return redirect('/login/?expired=1')
     if access.must_change_password and request.GET.get('skip') != '1':
         return redirect('/cambiar-contrasena/')
-    return render(request, 'home.html', {'is_viewer': access.role == 'viewer'})
+    return render(request, 'home.html', {'is_viewer': access.role == 'viewer', 'is_admin': access.role == 'admin'})
+
+
+@login_required
+def manage_managers(request):
+    access, _ = UserAccess.objects.get_or_create(user=request.user)
+    access = restore_fixed_staff_access(request.user, access)
+    if access.role != 'admin':
+        return redirect('/')
+
+    message = ''
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+        if action == 'add':
+            manager = request.POST.get('manager', '').strip()
+            division = request.POST.get('division', '').strip()
+            try:
+                season = int(request.POST.get('season', '2026'))
+            except ValueError:
+                season = 2026
+            if manager and division in LEAGUE_MANAGERS:
+                record, created = ManagerLiga.objects.update_or_create(
+                    season=season, division=division, manager=manager,
+                    defaults={'activo': True},
+                )
+                CambioRegistro.objects.create(
+                    usuario=request.user, division=division, season=season, jornada=0,
+                    accion='alta manager' if created else 'reactivar manager',
+                    detalle={'manager': manager},
+                )
+                message = f'{manager} está activo en {division}.'
+            else:
+                message = 'Indica un nombre y una división válidos.'
+        elif action in {'deactivate', 'reactivate'}:
+            record = get_object_or_404(ManagerLiga, pk=request.POST.get('manager_id'))
+            record.activo = action == 'reactivate'
+            record.save(update_fields=['activo', 'actualizado'])
+            CambioRegistro.objects.create(
+                usuario=request.user, division=record.division, season=record.season, jornada=0,
+                accion='reactivar manager' if record.activo else 'desactivar manager',
+                detalle={'manager': record.manager},
+            )
+            message = f'{record.manager} ha sido {"reactivado" if record.activo else "desactivado"}. Su historial se conserva.'
+
+    managers = ManagerLiga.objects.order_by('division', 'manager')
+    return render(request, 'manage_managers.html', {
+        'managers': managers,
+        'divisions': LEAGUE_MANAGERS.keys(),
+        'message': message,
+        'current_season': 2026,
+    })
 
 
 def public_home(request):
@@ -1039,13 +1101,7 @@ def dashboard(request):
     if access.role == 'viewer':
         return redirect('/')
     divisions = [('Primera División', 'Kabes Team'), ('Segunda División', 'LLull Team'), ('Primera RFEF', 'Reventao'), ('Segunda RFEF', 'Carbayon'), ('Liga Moeve', 'Kabes Team')]
-    users = {
-        'Primera División': ['AlexJulio','Rexza','C.D.F. Arrieritos','Gestafa FC','Golden Ball','Ivanetti',"Kabe's Team",'Maceda','Mouki','Munera City','Raul C','Real JR','Iñigoool!!!!','Reventao','Tuercebotas','Llull Team','Pablo Cuevas','Joselillo81'],
-        'Segunda División': ['Marina','Kataki Villenero','Carbayon','At. Aviacion','Vendy','Goyo','Rocky Team','Ruben 1903ATM','Jackobo','Baetulo','FC Almogávers','Re Creativo Igualadino','Rapido de Bouzas','Gasteiz United','eMCasa','Gabrielix de Asturin','Adrianpt260','SpartanAgain'],
-        'Primera RFEF': ['Estefanía','Guerreros F.C','Pcotop Team','El Cabo','Checo21','C.D. Covadonga','Patontografos F.C','CD Cayon','Resalso','Beagar13','Gsgg Team','Manuymarian',"Minuto 94'",'JAM F.C.','Litoscaboalles','Atleti69','Maicame'],
-        'Segunda RFEF': ['Semela','Soar FC','UnaiRZ','Izan Navarro','JaviArsenal','Jose Mourinho','Muñeko','Danilo77','Alex SC','K87','EmiGeta','A.A. Ponte Preta','Atletico Zaragoza','Peluso F.C.','Emilio Ramos','Sevi-21','Esta NFL No la Entiendo','Deckers'],
-        'Liga Moeve': ['Titanes65','Antbariba','El Macho','Palacios FC','Real Oviedo','OskitarTeam','Jopehe95','Schalke Te meto','Caimans','Shaiel Afonso Rodriguez','RBN147','Ivan Diaz'],
-    }
+    users = active_league_managers()
     legacy_allowed = fixed_edit_divisions(request.user.username)
     editable_divisions = [division for division, _ in divisions if division in legacy_allowed]
     editable_divisions.extend(access.editable_divisions)
