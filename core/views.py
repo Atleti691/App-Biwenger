@@ -1008,7 +1008,7 @@ def _legacy_setup_collaborators(request):
                 user.save(update_fields=['password'])
                 UserAccess.objects.update_or_create(user=user, defaults={'must_change_password': True})
         message = 'Cuentas guardadas correctamente. Cada colaborador deberá cambiar su contraseña al entrar.'
-    managed_users = UserAccess.objects.select_related('user').order_by('user__username')
+    managed_users = UserAccess.objects.select_related('user').order_by('role', 'user__username')
     recent_changes = CambioRegistro.objects.select_related('usuario').order_by('-creado')[:100]
     return render(request, 'setup_collaborators.html', {
         'names': names,
@@ -1084,7 +1084,7 @@ def setup_collaborators(request):
                 message = f'Usuario {username} creado correctamente.'
             else:
                 message = 'Es necesario indicar usuario y contraseña.'
-    managed_users = UserAccess.objects.select_related('user').order_by('user__username')
+    managed_users = UserAccess.objects.select_related('user').order_by('role', 'user__username')
     recent_changes = CambioRegistro.objects.select_related('usuario').order_by('-creado')[:100]
     return render(request, 'setup_collaborators.html', {'message': message, 'managed_users': managed_users, 'recent_changes': recent_changes, 'divisions': divisions})
 
