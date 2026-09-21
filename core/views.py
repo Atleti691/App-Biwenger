@@ -562,6 +562,12 @@ def vip_matches(request):
             except Exception:
                 logger.exception('No se pudieron enviar los premios VIP de %s', partido.titulo)
                 message = f'Partido cerrado. Hay {len(winners)} acertantes, pero no se pudieron enviar sus correos.'
+        elif action == 'update_match_details' and is_admin:
+            partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'))
+            partido.resultado = request.POST.get('resultado', '').strip()
+            partido.goleadores = request.POST.get('goleadores', '').strip()
+            partido.save(update_fields=['resultado', 'goleadores'])
+            message = f'Resultado y goleadores de {partido.titulo} actualizados.'
         elif action == 'remind_penalty' and is_admin:
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'), cerrado=True)
             winners = list(partido.votos.filter(pronostico_goles=partido.opcion_goles_real, objetivo_penalizacion='', penalizaciones_objetivo={}))

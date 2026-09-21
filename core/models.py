@@ -109,6 +109,8 @@ class PartidoVIP(models.Model):
     escudo_visitante = models.URLField(blank=True)
     fecha_cierre = models.DateTimeField()
     goles_reales = models.PositiveSmallIntegerField(null=True, blank=True)
+    resultado = models.CharField(max_length=80, blank=True)
+    goleadores = models.TextField(blank=True)
     cerrado = models.BooleanField(default=False)
     notificaciones_ganadores = models.JSONField(default=list, blank=True)
     creado = models.DateTimeField(auto_now_add=True)
