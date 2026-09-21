@@ -586,7 +586,7 @@ def vip_penalty_choice(request, token):
         if invalid_amount or total != 50:
             message = 'El reparto debe sumar exactamente 50 puntos antes de confirmarlo.'
         elif any(received.get(target, 0) + points > 150 for target, points in allocations.items()):
-            message = 'Alguno de los managers superaría el máximo acumulado de 150 puntos. Reduce esa cantidad.'
+            message = 'Ese reparto no está disponible. Redistribuye los 50 puntos entre otros managers.'
         else:
             with transaction.atomic():
                 locked_vote = VotoPartidoVIP.objects.select_for_update().get(pk=vote.pk)
