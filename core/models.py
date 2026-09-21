@@ -158,3 +158,29 @@ class CodigoEmergenciaVIP(models.Model):
 
     def __str__(self):
         return f'{self.manager} — {self.partido}'
+
+
+class Sugerencia(models.Model):
+    CATEGORY_CHOICES = [('datos', 'Introducción de datos'), ('estadisticas', 'Estadísticas'), ('vip', 'Partidos VIP'), ('torneos', 'Torneos'), ('usuarios', 'Usuarios y accesos'), ('otra', 'Otra mejora')]
+    STATUS_CHOICES = [('nueva', 'Nueva'), ('estudio', 'En estudio'), ('aceptada', 'Aceptada'), ('desarrollo', 'En desarrollo'), ('realizada', 'Realizada'), ('descartada', 'Descartada')]
+    autor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='sugerencias')
+    titulo = models.CharField(max_length=140)
+    descripcion = models.TextField()
+    categoria = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='otra')
+    estado = models.CharField(max_length=20, choices=STATUS_CHOICES, default='nueva')
+    anonima = models.BooleanField(default=False)
+    respuesta = models.TextField(blank=True)
+    creada = models.DateTimeField(auto_now_add=True)
+    actualizada = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-creada',)
+
+
+class VotoSugerencia(models.Model):
+    sugerencia = models.ForeignKey(Sugerencia, on_delete=models.CASCADE, related_name='votos')
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('sugerencia', 'usuario')

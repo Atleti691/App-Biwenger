@@ -11,12 +11,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.mail import EmailMessage, get_connection
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from .forms import FirstPasswordChangeForm, LoginForm
-from .models import CambioRegistro, CodigoEmergenciaVIP, ContactoManager, JornadaRegistro, ManagerLiga, PartidoVIP, UserAccess, VotoPartidoVIP
+from .models import CambioRegistro, CodigoEmergenciaVIP, ContactoManager, JornadaRegistro, ManagerLiga, PartidoVIP, Sugerencia, UserAccess, VotoPartidoVIP, VotoSugerencia
 from .services.openligadb import get_matches, get_preferred_team_logo, get_team_logo
 
 logger = logging.getLogger(__name__)
@@ -92,14 +92,17 @@ def vip_adjustments_for_journey(jornada):
         for division in LEAGUE_MANAGERS:
             division_votes = [vote for vote in votes if vote.division == division]
             if records.get(division) and records[division].cerrada:
-                groups = {'local': [], 'visitante': []}
+                groups = {'local': [], 'visitante': [], 'ninguno': []}
                 for vote in division_votes:
                     if vote.posicionamiento in groups and (division, vote.manager) in base_points:
                         groups[vote.posicionamiento].append(base_points[(division, vote.manager)])
                 averages = {key: (sum(values) / len(values) if values else None) for key, values in groups.items()}
                 winner = ''
-                if averages['local'] is not None and averages['visitante'] is not None and averages['local'] != averages['visitante']:
-                    winner = 'local' if averages['local'] > averages['visitante'] else 'visitante'
+                valid_averages = {key: value for key, value in averages.items() if value is not None}
+                if valid_averages:
+                    best = max(valid_averages.values())
+                    leaders = [key for key, value in valid_averages.items() if value == best]
+                    winner = leaders[0] if len(leaders) == 1 else ''
                 for vote in division_votes:
                     key = (division, vote.manager)
                     adjustments[key] = adjustments.get(key, 0) - 10
@@ -130,15 +133,18 @@ def vip_breakdown_for_journey(jornada, division):
             base_points[manager] = int(row.get('app') or 0)
     for partido in partidos.filter(cerrado=True):
         votes = list(partido.votos.filter(division=division))
-        groups = {'local': [], 'visitante': []}
+        groups = {'local': [], 'visitante': [], 'ninguno': []}
         if division_closed:
             for vote in votes:
                 if vote.posicionamiento in groups and vote.manager in base_points:
                     groups[vote.posicionamiento].append(base_points[vote.manager])
         averages = {key: (sum(values) / len(values) if values else None) for key, values in groups.items()}
         winner = ''
-        if averages['local'] is not None and averages['visitante'] is not None and averages['local'] != averages['visitante']:
-            winner = 'local' if averages['local'] > averages['visitante'] else 'visitante'
+        valid_averages = {key: value for key, value in averages.items() if value is not None}
+        if valid_averages:
+            best = max(valid_averages.values())
+            leaders = [key for key, value in valid_averages.items() if value == best]
+            winner = leaders[0] if len(leaders) == 1 else ''
         for vote in votes:
             if division_closed:
                 positioning[vote.manager] = positioning.get(vote.manager, 0) - 10
@@ -286,6 +292,50 @@ def manage_managers(request):
 
 def public_home(request):
     return render(request, 'public_home.html')
+
+
+@login_required
+def suggestions(request):
+    access, _ = UserAccess.objects.get_or_create(user=request.user)
+    access = restore_fixed_staff_access(request.user, access)
+    is_admin = access.role == 'admin'
+    message = ''
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+        if action == 'create':
+            title = request.POST.get('title', '').strip()
+            description = request.POST.get('description', '').strip()
+            category = request.POST.get('category', 'otra')
+            if title and description and category in dict(Sugerencia.CATEGORY_CHOICES):
+                Sugerencia.objects.create(autor=request.user, titulo=title, descripcion=description, categoria=category, anonima=request.POST.get('anonymous') == '1')
+                message = 'Sugerencia enviada. Gracias por ayudarnos a mejorar.'
+            else:
+                message = 'Escribe un título y explica la sugerencia.'
+        elif action == 'vote':
+            suggestion = get_object_or_404(Sugerencia, pk=request.POST.get('suggestion_id'))
+            vote = VotoSugerencia.objects.filter(sugerencia=suggestion, usuario=request.user).first()
+            if vote:
+                vote.delete()
+                message = 'Has retirado tu apoyo.'
+            else:
+                VotoSugerencia.objects.create(sugerencia=suggestion, usuario=request.user)
+                message = 'Has apoyado esta sugerencia.'
+        elif action == 'moderate' and is_admin:
+            suggestion = get_object_or_404(Sugerencia, pk=request.POST.get('suggestion_id'))
+            status = request.POST.get('status', 'nueva')
+            if status in dict(Sugerencia.STATUS_CHOICES):
+                suggestion.estado = status
+                suggestion.respuesta = request.POST.get('response', '').strip()
+                suggestion.save(update_fields=['estado', 'respuesta', 'actualizada'])
+                message = 'Sugerencia actualizada.'
+    items = Sugerencia.objects.select_related('autor').annotate(vote_count=Count('votos'))
+    user_votes = set(VotoSugerencia.objects.filter(usuario=request.user).values_list('sugerencia_id', flat=True))
+    return render(request, 'suggestions.html', {'suggestions': items, 'user_votes': user_votes, 'is_admin': is_admin, 'categories': Sugerencia.CATEGORY_CHOICES, 'statuses': Sugerencia.STATUS_CHOICES, 'message': message})
+
+
+@login_required
+def assistant_guide(request):
+    return render(request, 'assistant_guide.html')
 
 
 def contact_form(request):
@@ -619,15 +669,20 @@ def vip_matches(request):
                 }
                 for division, managers in LEAGUE_MANAGERS.items()
             ]
-        groups = {'local': [], 'visitante': []}
+        groups = {'local': [], 'visitante': [], 'ninguno': []}
         for vote in partido.votos.all():
             if partido.puntos_jornada_disponibles and vote.posicionamiento in groups and (vote.division, vote.manager) in manager_points:
                 groups[vote.posicionamiento].append(manager_points.get((vote.division, vote.manager), 0))
         partido.media_local = round(sum(groups['local']) / len(groups['local']), 2) if groups['local'] else None
         partido.media_visitante = round(sum(groups['visitante']) / len(groups['visitante']), 2) if groups['visitante'] else None
+        partido.media_ninguno = round(sum(groups['ninguno']) / len(groups['ninguno']), 2) if groups['ninguno'] else None
         partido.ganador_posicionamiento = ''
-        if partido.media_local is not None and partido.media_visitante is not None and partido.media_local != partido.media_visitante:
-            partido.ganador_posicionamiento = 'local' if partido.media_local > partido.media_visitante else 'visitante'
+        vip_averages = {'local': partido.media_local, 'visitante': partido.media_visitante, 'ninguno': partido.media_ninguno}
+        valid_averages = {key: value for key, value in vip_averages.items() if value is not None}
+        if valid_averages:
+            best = max(valid_averages.values())
+            leaders = [key for key, value in valid_averages.items() if value == best]
+            partido.ganador_posicionamiento = leaders[0] if len(leaders) == 1 else ''
         partido.acertantes_goles = [v for v in partido.votos.all() if partido.cerrado and v.pronostico_goles == partido.opcion_goles_real]
         for winner in partido.acertantes_goles:
             penalties = winner.penalizaciones_objetivo or ({winner.objetivo_penalizacion: 50} if winner.objetivo_penalizacion else {})
@@ -846,26 +901,38 @@ def vip_statistics(request):
         for division, managers in LEAGUE_MANAGERS.items():
             votes = list(partido.votos.filter(division=division))
             record = JornadaRegistro.objects.filter(jornada=partido.jornada, division=division).order_by('-updated_at').first() if partido.jornada else None
-            media_local = media_visitante = None
+            media_local = media_visitante = media_ninguno = None
             positioning_winner = ''
             if partido.cerrado and record and record.cerrada:
                 manager_points = {name: int(row.get('app') or 0) for name, row in (record.datos or {}).items()}
                 local_points = [manager_points[vote.manager] for vote in votes if vote.posicionamiento == 'local' and vote.manager in manager_points]
                 visitor_points = [manager_points[vote.manager] for vote in votes if vote.posicionamiento == 'visitante' and vote.manager in manager_points]
+                neither_points = [manager_points[vote.manager] for vote in votes if vote.posicionamiento == 'ninguno' and vote.manager in manager_points]
                 media_local = round(sum(local_points) / len(local_points), 2) if local_points else None
                 media_visitante = round(sum(visitor_points) / len(visitor_points), 2) if visitor_points else None
-                if media_local is not None and media_visitante is not None and media_local != media_visitante:
-                    winner_position = 'local' if media_local > media_visitante else 'visitante'
-                    positioning_winner = partido.equipo_local if winner_position == 'local' else partido.equipo_visitante
+                media_ninguno = round(sum(neither_points) / len(neither_points), 2) if neither_points else None
+                averages = {'local': media_local, 'visitante': media_visitante, 'ninguno': media_ninguno}
+                valid_averages = {key: value for key, value in averages.items() if value is not None}
+                if valid_averages:
+                    best = max(valid_averages.values())
+                    leaders = [key for key, value in valid_averages.items() if value == best]
+                    winner_position = leaders[0] if len(leaders) == 1 else ''
+                else:
+                    winner_position = ''
+                if winner_position:
+                    positioning_winner = partido.equipo_local if winner_position == 'local' else partido.equipo_visitante if winner_position == 'visitante' else 'Ninguno de los dos'
                     send_vip_position_winner_emails(request, partido, division, winner_position, votes)
             total = len(votes)
             positions = {key: sum(v.posicionamiento == key for v in votes) for key in ('local', 'visitante', 'ninguno')}
             goals = {key: sum(v.pronostico_goles == key for v in votes) for key in ('0', '1', '2', '3+')}
             targets = {}
+            penalty_actions = []
             for vote in votes:
                 penalties = vote.penalizaciones_objetivo or ({vote.objetivo_penalizacion: 50} if vote.objetivo_penalizacion else {})
                 for target, points in penalties.items():
                     targets[target] = targets.get(target, 0) + int(points or 0)
+                if vote.pronostico_goles == partido.opcion_goles_real:
+                    penalty_actions.append({'manager': vote.manager, 'executed': bool(penalties), 'allocations': sorted(penalties.items())})
             divisions.append({
                 'name': division,
                 'votes': total,
@@ -874,6 +941,7 @@ def vip_statistics(request):
                 'calculated': bool(partido.cerrado and record and record.cerrada),
                 'media_local': media_local,
                 'media_visitante': media_visitante,
+                'media_ninguno': media_ninguno,
                 'positioning_winner': positioning_winner,
                 'positions': positions,
                 'goals': [
@@ -883,6 +951,7 @@ def vip_statistics(request):
                     {'label': '3 o más', 'count': goals['3+']},
                 ],
                 'targets': sorted(targets.items(), key=lambda item: (-item[1], item[0])),
+                'penalty_actions': penalty_actions,
             })
         panels.append({'match': partido, 'divisions': divisions})
     return render(request, 'vip_statistics.html', {'panels': panels})

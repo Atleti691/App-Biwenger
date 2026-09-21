@@ -62,9 +62,10 @@
 <strong>Finalizado:</strong> {{ partido.goles_reales }} goles.</p>
 <p>Media {{ partido.equipo_local }}: <strong>{{ partido.media_local|default:'—' }}</strong>
 <br>Media {{ partido.equipo_visitante }}: <strong>{{ partido.media_visitante|default:'—' }}</strong>
+<br>Media Ninguno de los dos: <strong>{{ partido.media_ninguno|default:'—' }}</strong>
 </p>
 <p>
-<strong>Ganador del posicionamiento:</strong> {% if partido.ganador_posicionamiento == 'local' %}{{ partido.equipo_local }}{% elif partido.ganador_posicionamiento == 'visitante' %}{{ partido.equipo_visitante }}{% else %}Empate o sin datos suficientes{% endif %}. Cada participante resta 10 puntos y quienes eligieron al ganador reciben 100.</p>
+<strong>Ganador del posicionamiento:</strong> {% if partido.ganador_posicionamiento == 'local' %}{{ partido.equipo_local }}{% elif partido.ganador_posicionamiento == 'visitante' %}{{ partido.equipo_visitante }}{% elif partido.ganador_posicionamiento == 'ninguno' %}Ninguno de los dos{% else %}Empate o sin datos suficientes{% endif %}. Cada participante resta 10 puntos y quienes eligieron al ganador reciben 100.</p>
 <p>
 <strong>Acertantes de goles:</strong> {% for voto in partido.acertantes_goles %}{{ voto.manager }}{% if not forloop.last %}, {% endif %}{% empty %}Ninguno{% endfor %}</p>{% endif %}</article>{% empty %}<p>Todavía no hay partidos VIP creados.</p>{% endfor %}</div>
 </section>

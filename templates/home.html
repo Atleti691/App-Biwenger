@@ -14,6 +14,8 @@
 <section class="card"><h2>📊 Mostrar estadísticas</h2><p>Consulta las clasificaciones de cada jornada.</p><a class="stats" href="{% url 'statistics' %}">Ver estadísticas</a></section>
 {% if not is_viewer %}<section class="card"><h2>🏆 Torneos</h2><p>Consulta clasificados y evolución de los torneos.</p><a href="{% url 'tournaments' %}">Entrar</a></section>{% endif %}
 <section class="card"><h2>🗺️ Procedencia</h2><p>Descubre de qué provincias son los managers.</p><a class="origins" href="{% url 'origins' %}">Ver mapa</a></section>
+<section class="card"><h2>💡 Sugerencias</h2><p>Propón mejoras y apoya las ideas de otros usuarios.</p><a href="{% url 'suggestions' %}">Participar</a></section>
+<section class="card"><h2>⚽🤖 Balón Guía</h2><p>Pregunta dónde encontrar cada función de la aplicación.</p><a class="communications" href="{% url 'assistant_guide' %}">Preguntar</a></section>
 {% if not is_viewer %}<section class="card"><h2>⭐ Partidos VIP</h2><p>Gestiona y consulta los partidos VIP.</p><a class="vip" href="{% url 'vip_matches' %}">Entrar</a></section>{% endif %}
 {% if is_admin %}<section class="card"><h2>📣 Comunicaciones</h2><p>Solicita correos y provincias y comprueba quién falta.</p><a class="communications" href="{% url 'communications' %}">Gestionar</a></section><section class="card"><h2>👥 Gestionar colaboradores</h2><p>Crea y administra colaboradores y perfiles temporales.</p><a class="admin" href="{% url 'setup_collaborators' %}">Gestionar</a></section><section class="card"><h2>⚽ Gestionar managers</h2><p>Añade, desactiva o reactiva participantes sin perder su historial.</p><a class="admin" href="{% url 'manage_managers' %}">Gestionar</a></section>{% endif %}
 </div>
