@@ -2,6 +2,7 @@ from datetime import timedelta
 import secrets
 import unicodedata
 import logging
+import re
 
 from django.contrib.auth import get_user_model, login, logout
 from django.contrib.auth.hashers import check_password, make_password
@@ -661,6 +662,8 @@ def vip_matches(request):
         partido.vote_url = request.build_absolute_uri(f'/partidos-vip/votar/{partido.id}/')
         partido.votacion_finalizada = partido.cerrado or timezone.now() > partido.fecha_cierre
         partido.participantes = partido.votos.count()
+        score_match = re.search(r'\d+\s*[–-]\s*\d+', partido.resultado or '')
+        partido.resultado_corto = score_match.group(0) if score_match else partido.resultado
         if can_follow_vip:
             voted_by_division = {}
             for vote in partido.votos.all():
