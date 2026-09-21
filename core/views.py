@@ -665,16 +665,37 @@ def vip_matches(request):
             voted_by_division = {}
             for vote in partido.votos.all():
                 voted_by_division.setdefault(vote.division, {})[vote.manager] = vote
-            partido.estado_divisiones = [
-                {
+            partido.estado_divisiones = []
+            for division, managers in LEAGUE_MANAGERS.items():
+                division_votes = list(voted_by_division.get(division, {}).values())
+                record = registros_jornada.filter(division=division).order_by('-updated_at').first()
+                averages = {'local': None, 'visitante': None, 'ninguno': None}
+                winner_label = ''
+                calculated = bool(partido.cerrado and record and record.cerrada)
+                if calculated:
+                    points = {name: int(row.get('app') or 0) for name, row in (record.datos or {}).items()}
+                    for position in averages:
+                        values = [points[vote.manager] for vote in division_votes if vote.posicionamiento == position and vote.manager in points]
+                        averages[position] = round(sum(values) / len(values), 2) if values else None
+                    valid = {key: value for key, value in averages.items() if value is not None}
+                    if valid:
+                        best = max(valid.values())
+                        leaders = [key for key, value in valid.items() if value == best]
+                        if len(leaders) == 1:
+                            winner = leaders[0]
+                            winner_label = partido.equipo_local if winner == 'local' else partido.equipo_visitante if winner == 'visitante' else 'Ninguno de los dos'
+                partido.estado_divisiones.append({
                     'division': division,
                     'votados': [voted_by_division.get(division, {}).get(manager) for manager in managers if manager in voted_by_division.get(division, {})],
                     'pendientes': [manager for manager in managers if manager not in voted_by_division.get(division, {})],
                     'total': len(managers),
                     'porcentaje': round(len(voted_by_division.get(division, {})) * 100 / len(managers)) if managers else 0,
-                }
-                for division, managers in LEAGUE_MANAGERS.items()
-            ]
+                    'calculated': calculated,
+                    'media_local': averages['local'],
+                    'media_visitante': averages['visitante'],
+                    'media_ninguno': averages['ninguno'],
+                    'positioning_winner': winner_label,
+                })
         groups = {'local': [], 'visitante': [], 'ninguno': []}
         for vote in partido.votos.all():
             if partido.puntos_jornada_disponibles and vote.posicionamiento in groups and (vote.division, vote.manager) in manager_points:
