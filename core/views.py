@@ -32,7 +32,7 @@ def send_vip_penalty_links(request, partido, votes):
             continue
         token = signing.dumps({'partido': partido.id, 'division': vote.division, 'manager': vote.manager}, salt='vip-penalty')
         url = request.build_absolute_uri(f'/partidos-vip/penalizacion/{token}/')
-        messages.append(EmailMessage(subject=f'Premio por acertar los goles — {partido.titulo}', body=(f'Hola {vote.manager}.\n\nHas acertado el número de goles de {partido.titulo}. Puedes repartir hasta 50 puntos de penalización entre uno o varios managers de tu división:\n{url}\n\nSolo podrás realizar esta elección una vez.'), to=[email], connection=connection))
+        messages.append(EmailMessage(subject=f'Premio por acertar los goles — {partido.titulo}', body=(f'Hola {vote.manager}.\n\nHas acertado el número de goles de {partido.titulo}. Debes repartir exactamente 50 puntos de penalización entre uno o varios managers de tu división:\n{url}\n\nSolo podrás realizar esta elección una vez.'), to=[email], connection=connection))
     return connection.send_messages(messages) if messages else 0
 
 
@@ -583,10 +583,8 @@ def vip_penalty_choice(request, token):
             if points:
                 allocations[target] = points
         total = sum(allocations.values())
-        if invalid_amount or total > 50:
-            message = 'Revisa las cantidades: deben ser números enteros y sumar como máximo 50 puntos.'
-        elif total <= 0:
-            message = 'Debes repartir al menos 1 punto.'
+        if invalid_amount or total != 50:
+            message = 'El reparto debe sumar exactamente 50 puntos antes de confirmarlo.'
         elif any(received.get(target, 0) + points > 150 for target, points in allocations.items()):
             message = 'Alguno de los managers superaría el máximo acumulado de 150 puntos. Reduce esa cantidad.'
         else:
