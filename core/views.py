@@ -36,6 +36,45 @@ def send_vip_penalty_links(request, partido, votes):
     return connection.send_messages(messages) if messages else 0
 
 
+def send_vip_position_winner_emails(request, partido, division, winner_position, votes):
+    """Notify a division's winners once after its positioning average is known."""
+    notified = list(partido.notificaciones_ganadores or [])
+    if division in notified or not winner_position:
+        return 0
+    contacts = {(item.division, item.manager): item.email.strip() for item in ContactoManager.objects.exclude(email='')}
+    statistics_url = request.build_absolute_uri('/estadisticas/partidos-vip/')
+    messages = []
+    for vote in votes:
+        if vote.posicionamiento != winner_position:
+            continue
+        email = contacts.get((division, vote.manager))
+        if not email:
+            continue
+        messages.append(EmailMessage(
+            subject=f'¡Has ganado el posicionamiento! — {partido.titulo}',
+            body=(
+                f'Hola {vote.manager}.\n\n'
+                f'¡Enhorabuena! Has ganado la media del posicionamiento del Partido VIP "{partido.titulo}" '
+                f'en {division}. Tu premio neto por el posicionamiento es de 90 puntos.\n\n'
+                f'Consulta aquí las estadísticas del Partido VIP:\n{statistics_url}\n\n'
+                'Sigue jugando. Esperamos que te esté gustando mucho la experiencia y estamos abiertos a cualquier sugerencia.'
+            ),
+            to=[email],
+        ))
+    if not messages:
+        return 0
+    try:
+        sent = get_connection(fail_silently=False).send_messages(messages)
+    except Exception:
+        logger.exception('No se pudieron enviar los avisos de ganadores VIP de %s', division)
+        return 0
+    if sent:
+        notified.append(division)
+        partido.notificaciones_ganadores = notified
+        partido.save(update_fields=['notificaciones_ganadores'])
+    return sent
+
+
 def vip_adjustments_for_journey(jornada):
     adjustments = {}
     records = {}
@@ -756,7 +795,9 @@ def vip_statistics(request):
                 media_local = round(sum(local_points) / len(local_points), 2) if local_points else None
                 media_visitante = round(sum(visitor_points) / len(visitor_points), 2) if visitor_points else None
                 if media_local is not None and media_visitante is not None and media_local != media_visitante:
-                    positioning_winner = partido.equipo_local if media_local > media_visitante else partido.equipo_visitante
+                    winner_position = 'local' if media_local > media_visitante else 'visitante'
+                    positioning_winner = partido.equipo_local if winner_position == 'local' else partido.equipo_visitante
+                    send_vip_position_winner_emails(request, partido, division, winner_position, votes)
             total = len(votes)
             positions = {key: sum(v.posicionamiento == key for v in votes) for key in ('local', 'visitante', 'ninguno')}
             goals = {key: sum(v.pronostico_goles == key for v in votes) for key in ('0', '1', '2', '3+')}

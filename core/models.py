@@ -94,6 +94,7 @@ class PartidoVIP(models.Model):
     fecha_cierre = models.DateTimeField()
     goles_reales = models.PositiveSmallIntegerField(null=True, blank=True)
     cerrado = models.BooleanField(default=False)
+    notificaciones_ganadores = models.JSONField(default=list, blank=True)
     creado = models.DateTimeField(auto_now_add=True)
 
     @property
