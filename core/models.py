@@ -172,6 +172,9 @@ class Sugerencia(models.Model):
     estado = models.CharField(max_length=20, choices=STATUS_CHOICES, default='nueva')
     anonima = models.BooleanField(default=False)
     respuesta = models.TextField(blank=True)
+    analisis = models.TextField(blank=True)
+    prioridad_analisis = models.CharField(max_length=12, blank=True)
+    analizada = models.DateTimeField(null=True, blank=True)
     creada = models.DateTimeField(auto_now_add=True)
     actualizada = models.DateTimeField(auto_now=True)
 

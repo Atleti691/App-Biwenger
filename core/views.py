@@ -300,6 +300,44 @@ def public_home(request):
     return render(request, 'public_home.html')
 
 
+def build_suggestion_analysis(suggestion):
+    votes = suggestion.votos.count()
+    description = suggestion.descripcion.strip()
+    category_difficulty = {
+        'datos': 'Media', 'estadisticas': 'Media', 'vip': 'Alta',
+        'torneos': 'Media', 'usuarios': 'Alta', 'otra': 'Por concretar',
+    }
+    score = min(votes, 5)
+    score += 2 if len(description) >= 120 else 1 if len(description) >= 50 else 0
+    score += 1 if suggestion.categoria != 'otra' else 0
+    if score >= 6:
+        priority = 'Alta'
+        recommendation = 'Merece pasar a estudio: tiene apoyo y está suficientemente explicada.'
+    elif score >= 3:
+        priority = 'Media'
+        recommendation = 'Tiene valor potencial. Conviene concretar alcance y comprobar cuántos usuarios la necesitan.'
+    else:
+        priority = 'Baja'
+        recommendation = 'No se descarta, pero necesita más detalle o más apoyo antes de dedicarle desarrollo.'
+    risks = {
+        'datos': 'Puede afectar al guardado y a cálculos existentes; requiere pruebas con jornadas reales.',
+        'estadisticas': 'Hay que comprobar que los nuevos cálculos sean comprensibles y no ralenticen la pantalla.',
+        'vip': 'Puede afectar votaciones, cierres o puntuaciones; necesita reglas muy claras.',
+        'torneos': 'Debe encajar con las reglas de clasificación y evitar duplicidades.',
+        'usuarios': 'Afecta permisos o datos personales; requiere especial cuidado de seguridad.',
+        'otra': 'El riesgo no puede valorarse bien hasta concretar mejor la propuesta.',
+    }
+    value = 'Aporta una mejora concreta a la experiencia de la liga.' if len(description) >= 50 else 'La idea puede ser útil, pero su beneficio necesita una explicación más concreta.'
+    return priority, (
+        f'Valor: {value}\n'
+        f'Apoyo actual: {votes} voto{"s" if votes != 1 else ""}.\n'
+        f'Dificultad estimada: {category_difficulty.get(suggestion.categoria, "Por concretar")}.\n'
+        f'Riesgo principal: {risks.get(suggestion.categoria, risks["otra"])}\n'
+        f'Recomendación: {recommendation}\n'
+        'Nota: valoración orientativa; la decisión final corresponde a la administración.'
+    )
+
+
 @login_required
 def suggestions(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
@@ -335,6 +373,14 @@ def suggestions(request):
                 suggestion.respuesta = request.POST.get('response', '').strip()
                 suggestion.save(update_fields=['estado', 'respuesta', 'actualizada'])
                 message = 'Sugerencia actualizada.'
+        elif action == 'analyze' and is_admin:
+            suggestion = get_object_or_404(Sugerencia, pk=request.POST.get('suggestion_id'))
+            priority, analysis = build_suggestion_analysis(suggestion)
+            suggestion.prioridad_analisis = priority
+            suggestion.analisis = analysis
+            suggestion.analizada = timezone.now()
+            suggestion.save(update_fields=['prioridad_analisis', 'analisis', 'analizada', 'actualizada'])
+            message = 'Análisis de la sugerencia generado.'
         elif action == 'delete':
             suggestion = get_object_or_404(Sugerencia, pk=request.POST.get('suggestion_id'))
             if suggestion.autor_id == request.user.id or can_delete_all:
