@@ -161,7 +161,7 @@ EDIT_DIVISIONS = {
     'Kabes Team': {'Primera División', 'Liga Moeve'},
     'LLull Team': {'Segunda División'},
     'Reventao': {'Primera RFEF'},
-    'Carbayon': {'Segunda RFEF'},
+    'Pablo Cuevas': {'Segunda RFEF'},
 }
 
 
@@ -238,7 +238,12 @@ def home(request):
         return redirect('/login/?expired=1')
     if access.must_change_password and request.GET.get('skip') != '1':
         return redirect('/cambiar-contrasena/')
-    return render(request, 'home.html', {'is_viewer': access.role == 'viewer', 'is_admin': access.role == 'admin'})
+    new_suggestions_count = Sugerencia.objects.filter(estado='nueva').count()
+    return render(request, 'home.html', {
+        'is_viewer': access.role == 'viewer',
+        'is_admin': access.role == 'admin',
+        'new_suggestions_count': new_suggestions_count,
+    })
 
 
 @login_required
@@ -1224,7 +1229,7 @@ def dashboard(request):
         return redirect('/cambiar-contrasena/')
     if access.role == 'viewer':
         return redirect('/')
-    divisions = [('Primera División', 'Kabes Team'), ('Segunda División', 'LLull Team'), ('Primera RFEF', 'Reventao'), ('Segunda RFEF', 'Carbayon'), ('Liga Moeve', 'Kabes Team')]
+    divisions = [('Primera División', 'Kabes Team'), ('Segunda División', 'LLull Team'), ('Primera RFEF', 'Reventao'), ('Segunda RFEF', 'Pablo Cuevas'), ('Liga Moeve', 'Kabes Team')]
     users = active_league_managers()
     legacy_allowed = fixed_edit_divisions(request.user.username)
     editable_divisions = [division for division, _ in divisions if division in legacy_allowed]

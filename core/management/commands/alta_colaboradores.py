@@ -9,7 +9,7 @@ from core.models import UserAccess
 class Command(BaseCommand):
     help = 'Crea o actualiza las cuentas iniciales de los colaboradores.'
 
-    colaboradores = ['Kabes Team', 'LLull Team', 'Reventao', 'Carbayon']
+    colaboradores = ['Kabes Team', 'LLull Team', 'Reventao', 'Pablo Cuevas']
 
     def handle(self, *args, **options):
         User = get_user_model()
