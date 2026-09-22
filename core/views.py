@@ -581,6 +581,30 @@ def vip_matches(request):
             except Exception:
                 logger.exception('No se pudieron recordar los premios VIP de %s', partido.titulo)
                 message = 'No se pudieron enviar los recordatorios a los acertantes.'
+        elif action == 'reset_penalty' and is_admin:
+            partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'), cerrado=True)
+            vote = get_object_or_404(
+                VotoPartidoVIP,
+                partido=partido,
+                division=request.POST.get('division', ''),
+                manager=request.POST.get('manager', ''),
+            )
+            vote.objetivo_penalizacion = ''
+            vote.penalizaciones_objetivo = {}
+            vote.save(update_fields=['objetivo_penalizacion', 'penalizaciones_objetivo', 'actualizado'])
+            CambioRegistro.objects.create(
+                usuario=request.user,
+                division=vote.division,
+                jornada=partido.jornada or 0,
+                accion='reiniciar reparto de penalización VIP',
+                detalle={'partido': partido.id, 'manager': vote.manager},
+            )
+            try:
+                sent = send_vip_penalty_links(request, partido, [vote])
+                message = f'Reparto de {vote.manager} reiniciado. Se ha enviado {sent} correo con un nuevo enlace.'
+            except Exception:
+                logger.exception('No se pudo reenviar el premio VIP a %s', vote.manager)
+                message = f'Reparto de {vote.manager} reiniciado, pero no se pudo enviar el correo.'
         elif action == 'remind' and is_admin:
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'))
             voted = set(partido.votos.values_list('division', 'manager'))
