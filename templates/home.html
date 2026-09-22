@@ -11,6 +11,7 @@
 <section class="welcome"><h2>Bienvenido, {{ request.user.username }}</h2><p>¿Qué quieres hacer?</p></section>
 <div class="grid">
 {% if not is_viewer %}<section class="card"><h2>📝 Introducir datos</h2><p>Gestiona puntos APP, quinielas, porras y cláusulas.</p><a href="{% url 'dashboard' %}">Entrar</a></section>{% endif %}
+<section class="card"><h2>📅 Resumen de jornadas</h2><p>Comprueba qué jornadas están abiertas, pendientes, cerradas o sin rellenar.</p><a href="{% url 'journey_summary' %}">Ver estados</a></section>
 <section class="card"><h2>📊 Mostrar estadísticas</h2><p>Consulta las clasificaciones de cada jornada.</p><a class="stats" href="{% url 'statistics' %}">Ver estadísticas</a></section>
 {% if not is_viewer %}<section class="card"><h2>🏆 Torneos</h2><p>Consulta clasificados y evolución de los torneos.</p><a href="{% url 'tournaments' %}">Entrar</a></section>{% endif %}
 <section class="card"><h2>🗺️ Procedencia</h2><p>Descubre de qué provincias son los managers.</p><a class="origins" href="{% url 'origins' %}">Ver mapa</a></section>

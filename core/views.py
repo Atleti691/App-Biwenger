@@ -247,6 +247,49 @@ def home(request):
 
 
 @login_required
+def journey_summary(request):
+    access, _ = UserAccess.objects.get_or_create(user=request.user)
+    access = restore_fixed_staff_access(request.user, access)
+    if access.access_expires_at and access.access_expires_at <= timezone.now():
+        logout(request)
+        return redirect('/login/?expired=1')
+    divisions = ['Primera División', 'Segunda División', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
+    journey_numbers = list(range(1, 39)) + [101, 106]
+    display_names = {101: 'Jornada 1 AP', 106: 'Jornada 6 AP'}
+    latest_records = {}
+    records = JornadaRegistro.objects.filter(season=2026, division__in=divisions).order_by('-updated_at')
+    for record in records:
+        latest_records.setdefault((record.jornada, record.division), record)
+    counts = {'empty': 0, 'open': 0, 'pending': 0, 'closed': 0}
+    rows = []
+    for number in journey_numbers:
+        states = []
+        for division in divisions:
+            record = latest_records.get((number, division))
+            if not record:
+                key, label = 'empty', 'Sin rellenar'
+                updated = None
+            elif record.cerrada:
+                key, label = 'closed', 'Cerrada'
+                updated = record.updated_at
+            elif record.datos:
+                key, label = 'pending', 'Pendiente de cerrar'
+                updated = record.updated_at
+            else:
+                key, label = 'open', 'Abierta'
+                updated = record.updated_at
+            counts[key] += 1
+            states.append({'division': division, 'key': key, 'label': label, 'updated': updated})
+        rows.append({'number': number, 'label': display_names.get(number, f'Jornada {number}'), 'states': states})
+    return render(request, 'journey_summary.html', {
+        'divisions': divisions,
+        'rows': rows,
+        'counts': counts,
+        'total': len(journey_numbers) * len(divisions),
+    })
+
+
+@login_required
 def manage_managers(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
     access = restore_fixed_staff_access(request.user, access)

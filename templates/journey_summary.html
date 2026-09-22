@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resumen de jornadas</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:22px;font:14px Arial;background:linear-gradient(135deg,#eaf3ff,#fff2e4);color:#172033}main{max-width:1280px;margin:auto}.hero{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:24px 28px;border-radius:20px;background:linear-gradient(135deg,#152554,#3976d3);color:#fff;box-shadow:0 12px 30px #15255430}.hero h1{margin:0 0 6px}.hero p{margin:0;color:#dce8ff}.hero a{color:#17336f;background:#fff;padding:10px 13px;border-radius:9px;text-decoration:none;font-weight:bold}.counters{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:13px;margin:18px 0}.counter{background:#fff;border-radius:15px;padding:17px;box-shadow:0 6px 18px #17203312;border-top:5px solid}.counter strong{display:block;font-size:28px;margin-top:4px}.counter.empty{border-color:#8a94a6}.counter.open{border-color:#25a45a}.counter.pending{border-color:#ef921f}.counter.closed{border-color:#d33d35}.legend{display:flex;gap:10px;flex-wrap:wrap;background:#fff;padding:13px 16px;border-radius:12px;margin-bottom:14px}.legend span,.state{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:7px 10px;font-weight:bold}.legend span:before{content:'';width:9px;height:9px;border-radius:50%;margin-right:6px}.table-wrap{overflow:auto;background:#fff;border-radius:17px;box-shadow:0 7px 24px #17203314}table{width:100%;border-collapse:collapse;min-width:960px}th,td{padding:11px 9px;text-align:center;border-bottom:1px solid #e8edf5}thead th{position:sticky;top:0;background:#eaf0ff;color:#213c83;z-index:2}tbody th{position:sticky;left:0;background:#fff;text-align:left;z-index:1}.state{min-width:125px;font-size:12px}.state small{display:none}.empty-state,.legend .empty{background:#eef0f4;color:#596273}.open-state,.legend .open{background:#e5f7eb;color:#14733c}.pending-state,.legend .pending{background:#fff0d9;color:#a55700}.closed-state,.legend .closed{background:#fde7e5;color:#a52520}.legend .empty:before{background:#8a94a6}.legend .open:before{background:#25a45a}.legend .pending:before{background:#ef921f}.legend .closed:before{background:#d33d35}.note{color:#647084;margin-top:12px}@media(max-width:700px){body{padding:12px}.hero{align-items:flex-start;flex-direction:column}.counters{grid-template-columns:1fr 1fr}.counter strong{font-size:23px}}
+</style>
+</head>
+<body><main>
+<header class="hero"><div><h1>📅 Resumen del estado de las jornadas</h1><p>Temporada 2026 · {{ total }} estados entre todas las divisiones</p></div><a href="/">Menú principal</a></header>
+<section class="counters">
+<article class="counter empty"><span>Sin rellenar</span><strong>{{ counts.empty }}</strong></article>
+<article class="counter open"><span>Abiertas</span><strong>{{ counts.open }}</strong></article>
+<article class="counter pending"><span>Pendientes de cerrar</span><strong>{{ counts.pending }}</strong></article>
+<article class="counter closed"><span>Cerradas</span><strong>{{ counts.closed }}</strong></article>
+</section>
+<div class="legend"><span class="empty">Sin rellenar</span><span class="open">Abierta</span><span class="pending">Pendiente de cerrar</span><span class="closed">Cerrada</span></div>
+<div class="table-wrap"><table><thead><tr><th>Jornada</th>{% for division in divisions %}<th>{{ division }}</th>{% endfor %}</tr></thead><tbody>
+{% for row in rows %}<tr><th>{{ row.label }}</th>{% for state in row.states %}<td><span class="state {{ state.key }}-state" title="{% if state.updated %}Actualizada: {{ state.updated|date:'d/m/Y H:i' }}{% else %}Todavía no hay datos guardados{% endif %}">{{ state.label }}</span></td>{% endfor %}</tr>{% endfor %}
+</tbody></table></div>
+<p class="note">Pasa el cursor sobre un estado para ver cuándo se actualizó por última vez.</p>
+</main></body></html>
