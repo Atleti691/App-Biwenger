@@ -536,31 +536,45 @@ def communications(request):
         if not contact.email.strip():
             return JsonResponse({'ok': False, 'manager': contact.manager, 'error': 'No tiene correo registrado'}, status=400)
         user = get_user_model().objects.filter(username__iexact=contact.manager).first()
+        user_created = user is None
         if user:
-            account, account_created = UserAccess.objects.get_or_create(user=user)
-            restore_fixed_staff_access(user, account)
-            if not account_created:
+            account = UserAccess.objects.filter(user=user).first()
+            if account:
+                restore_fixed_staff_access(user, account)
                 return JsonResponse({'ok': True, 'manager': contact.manager, 'status': 'existing', 'email_sent': False})
+            previous_password = user.password
+            previous_email = user.email
         else:
-            alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
-            initial_password = ''.join(secrets.choice(alphabet) for _ in range(10))
-            user = get_user_model().objects.create_user(username=contact.manager, email=contact.email, password=initial_password)
-            UserAccess.objects.create(user=user, must_change_password=True, is_viewer=True, role='viewer', editable_divisions=[])
-            login_url = request.build_absolute_uri('/login/')
-            try:
-                sent = EmailMessage(
-                    subject='Acceso de consulta — Liga Amigos XI',
-                    body=(f'Hola {contact.manager}.\n\nYa tienes acceso de consulta a Liga Amigos XI.\n\n'
-                          f'Usuario: {contact.manager}\nContraseña inicial: {initial_password}\nAcceso: {login_url}\n\n'
-                          'Al entrar tendrás que cambiar la contraseña. Tu perfil solo permite consultar estadísticas y el mapa de procedencia.'),
-                    to=[contact.email],
-                ).send(fail_silently=False)
-            except Exception:
-                logger.exception('No se pudo enviar el acceso de consulta a %s', contact.manager)
-                sent = 0
-            CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='crear acceso de consulta', detalle={'manager': contact.manager, 'correo_enviado': bool(sent)})
-            return JsonResponse({'ok': True, 'manager': contact.manager, 'status': 'created', 'email_sent': bool(sent)})
-        return JsonResponse({'ok': True, 'manager': contact.manager, 'status': 'existing', 'email_sent': False})
+            user = get_user_model().objects.create_user(username=contact.manager, email=contact.email)
+        alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+        initial_password = ''.join(secrets.choice(alphabet) for _ in range(10))
+        user.set_password(initial_password)
+        user.email = contact.email.strip()
+        user.save(update_fields=['password', 'email'])
+        account = UserAccess.objects.create(user=user, must_change_password=True, is_viewer=True, role='viewer', editable_divisions=[])
+        login_url = request.build_absolute_uri('/login/')
+        try:
+            sent = EmailMessage(
+                subject='Acceso de consulta — Liga Amigos XI',
+                body=(f'Hola {contact.manager}.\n\nYa tienes acceso de consulta a Liga Amigos XI.\n\n'
+                      f'Usuario: {user.username}\nContraseña inicial: {initial_password}\nAcceso: {login_url}\n\n'
+                      'Al entrar tendrás que cambiar la contraseña. Tu perfil solo permite consultar estadísticas y el mapa de procedencia.'),
+                to=[contact.email.strip()],
+            ).send(fail_silently=False)
+        except Exception:
+            logger.exception('No se pudo enviar el acceso de consulta a %s', contact.manager)
+            sent = 0
+        if not sent:
+            if user_created:
+                user.delete()
+            else:
+                account.delete()
+                user.password = previous_password
+                user.email = previous_email
+                user.save(update_fields=['password', 'email'])
+            return JsonResponse({'ok': False, 'manager': contact.manager, 'error': 'No se pudo enviar el correo. La cuenta queda pendiente para poder reintentarlo.'}, status=502)
+        CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='crear acceso de consulta', detalle={'manager': contact.manager, 'correo_enviado': True})
+        return JsonResponse({'ok': True, 'manager': contact.manager, 'status': 'created', 'email_sent': True})
     elif request.method == 'POST' and request.POST.get('action') == 'create_viewers':
         created_count = sent_count = skipped_count = 0
         login_url = request.build_absolute_uri('/login/')
