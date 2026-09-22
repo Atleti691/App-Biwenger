@@ -506,11 +506,14 @@ def communications(request):
 def vip_matches(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
     access = restore_fixed_staff_access(request.user, access)
-    if access.role == 'viewer':
+    protected_divisions = fixed_edit_divisions(request.user.username)
+    assigned_divisions = set(access.editable_divisions or [])
+    is_collaborator = access.role == 'collaborator' or bool(protected_divisions or assigned_divisions)
+    if access.role == 'viewer' and not is_collaborator:
         return redirect('/')
     is_admin = request.user.username.casefold() == 'atleti69' or access.role == 'admin'
-    can_create_vip = is_admin or access.role == 'collaborator'
-    can_follow_vip = can_create_vip
+    can_create_vip = is_admin or is_collaborator
+    can_follow_vip = is_admin or is_collaborator
     message = ''
     emergency_code_info = None
     if request.method == 'POST':
