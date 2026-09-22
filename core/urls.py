@@ -1,6 +1,6 @@
 from django.contrib.auth.views import LogoutView
 from django.urls import path
-from .views import AppLoginView, assistant_guide, change_password, communications, contact_form, dashboard, home, jornada_api, manage_managers, matches_api, origins, public_home, setup_collaborators, statistics, statistics_api, suggestions, tournaments, vip_matches, vip_penalty_choice, vip_statistics, vip_vote
+from .views import AppLoginView, assistant_guide, change_password, communications, contact_form, dashboard, delete_suggestion, home, jornada_api, manage_managers, matches_api, origins, public_home, setup_collaborators, statistics, statistics_api, suggestions, tournaments, vip_matches, vip_penalty_choice, vip_statistics, vip_vote
 
 urlpatterns = [
     path('', home, name='home'),
@@ -21,6 +21,7 @@ urlpatterns = [
     path('configurar-colaboradores/', setup_collaborators, name='setup_collaborators'),
     path('gestionar-managers/', manage_managers, name='manage_managers'),
     path('sugerencias/', suggestions, name='suggestions'),
+    path('sugerencias/<int:suggestion_id>/eliminar/', delete_suggestion, name='delete_suggestion'),
     path('asistente/', assistant_guide, name='assistant_guide'),
     path('api/partidos/<int:season>/<int:round_number>/', matches_api, name='matches_api'),
     path('api/jornada/<int:season>/<int:jornada>/', jornada_api, name='jornada_api'),
