@@ -305,6 +305,7 @@ def suggestions(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
     access = restore_fixed_staff_access(request.user, access)
     is_admin = access.role == 'admin'
+    can_delete_all = access.role in {'admin', 'collaborator'}
     message = ''
     if request.method == 'POST':
         action = request.POST.get('action', '')
@@ -334,9 +335,16 @@ def suggestions(request):
                 suggestion.respuesta = request.POST.get('response', '').strip()
                 suggestion.save(update_fields=['estado', 'respuesta', 'actualizada'])
                 message = 'Sugerencia actualizada.'
+        elif action == 'delete':
+            suggestion = get_object_or_404(Sugerencia, pk=request.POST.get('suggestion_id'))
+            if suggestion.autor_id == request.user.id or can_delete_all:
+                suggestion.delete()
+                message = 'Sugerencia eliminada.'
+            else:
+                message = 'No tienes permiso para eliminar esa sugerencia.'
     items = Sugerencia.objects.select_related('autor').annotate(vote_count=Count('votos'))
     user_votes = set(VotoSugerencia.objects.filter(usuario=request.user).values_list('sugerencia_id', flat=True))
-    return render(request, 'suggestions.html', {'suggestions': items, 'user_votes': user_votes, 'is_admin': is_admin, 'categories': Sugerencia.CATEGORY_CHOICES, 'statuses': Sugerencia.STATUS_CHOICES, 'message': message})
+    return render(request, 'suggestions.html', {'suggestions': items, 'user_votes': user_votes, 'is_admin': is_admin, 'can_delete_all': can_delete_all, 'categories': Sugerencia.CATEGORY_CHOICES, 'statuses': Sugerencia.STATUS_CHOICES, 'message': message})
 
 
 @login_required
