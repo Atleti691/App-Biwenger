@@ -158,10 +158,6 @@ def vip_breakdown_for_journey(jornada, division):
 
 EDIT_DIVISIONS = {
     'Atleti69': {'*'},
-    'Kabes Team': {'Primera División', 'Liga Moeve'},
-    'LLull Team': {'Segunda División'},
-    'Reventao': {'Primera RFEF'},
-    'Pablo Cuevas': {'Segunda RFEF'},
 }
 
 
@@ -1275,7 +1271,7 @@ def _legacy_setup_collaborators(request):
 def setup_collaborators(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
     access = restore_fixed_staff_access(request.user, access)
-    if request.user.username.casefold() != 'atleti69' and access.role != 'admin':
+    if request.user.username.casefold() != 'atleti69':
         return redirect('/')
     restore_all_fixed_staff_access()
     divisions = ['Primera División', 'Segunda División', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
@@ -1303,41 +1299,38 @@ def setup_collaborators(request):
                 message = f'Contrase\u00f1a de {target.username} actualizada.'
         elif action == 'update_user' and target_id:
             target = get_user_model().objects.filter(pk=target_id).first()
-            if target:
+            if target and target.username.casefold() != 'atleti69':
                 target_access, _ = UserAccess.objects.get_or_create(user=target)
-                if target.username.casefold() not in {username.casefold() for username in EDIT_DIVISIONS}:
-                    target_access.role = request.POST.get('role', 'viewer')
-                    target_access.is_viewer = target_access.role == 'viewer'
-                    target_access.editable_divisions = request.POST.getlist('divisions') if target_access.role == 'collaborator' else []
+                selected_divisions = request.POST.getlist('divisions')
+                if selected_divisions:
+                    target_access.role = 'collaborator'
+                    target_access.is_viewer = False
+                    target_access.editable_divisions = selected_divisions
                     target_access.save(update_fields=['role', 'is_viewer', 'editable_divisions'])
-                    CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='cambiar permisos', detalle={'usuario': target.username, 'rol': target_access.role})
-                    message = f'Permisos de {target.username} actualizados.'
+                    CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='cambiar divisiones de administrador', detalle={'usuario': target.username, 'divisiones': selected_divisions})
+                    message = f'Divisiones de {target.username} actualizadas.'
+                else:
+                    message = 'Selecciona al menos una división para ese administrador.'
         elif action == 'create_user':
             username = request.POST.get('new_username', '').strip()
             password = request.POST.get('new_password', '')
-            role = request.POST.get('role', 'viewer')
-            try:
-                duration = max(1, int(request.POST.get('duration', '1') or 1))
-            except ValueError:
-                duration = 1
-            unit = request.POST.get('duration_unit', 'permanent')
-            if username and password:
+            selected_divisions = request.POST.getlist('divisions')
+            if username and password and selected_divisions:
                 user, _ = get_user_model().objects.get_or_create(username=username)
                 user.set_password(password)
                 user.save()
-                expires_at = timezone.now() + timedelta(hours=duration) if unit == 'hours' else timezone.now() + timedelta(days=duration) if unit == 'days' else None
                 UserAccess.objects.update_or_create(user=user, defaults={
                     'must_change_password': True,
-                    'is_viewer': role == 'viewer',
-                    'role': role,
-                    'editable_divisions': request.POST.getlist('divisions') if role == 'collaborator' else [],
-                    'access_expires_at': expires_at,
+                    'is_viewer': False,
+                    'role': 'collaborator',
+                    'editable_divisions': selected_divisions,
+                    'access_expires_at': None,
                 })
-                CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='crear usuario', detalle={'usuario': username, 'rol': role})
-                message = f'Usuario {username} creado correctamente.'
+                CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='crear administrador de división', detalle={'usuario': username, 'divisiones': selected_divisions})
+                message = f'Administrador {username} creado correctamente.'
             else:
-                message = 'Es necesario indicar usuario y contraseña.'
-    managed_users = UserAccess.objects.select_related('user').order_by('role', 'user__username')
+                message = 'Indica usuario, contraseña y al menos una división.'
+    managed_users = UserAccess.objects.select_related('user').filter(role__in=['admin', 'collaborator']).order_by('user__username')
     recent_changes = CambioRegistro.objects.select_related('usuario').order_by('-creado')[:100]
     return render(request, 'setup_collaborators.html', {'message': message, 'managed_users': managed_users, 'recent_changes': recent_changes, 'divisions': divisions})
 
