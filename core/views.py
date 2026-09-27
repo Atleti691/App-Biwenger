@@ -1282,10 +1282,13 @@ def setup_collaborators(request):
         if action == 'delete_user' and target_id:
             target = get_user_model().objects.filter(pk=target_id).first()
             if target and target.username.casefold() not in {username.casefold() for username in EDIT_DIVISIONS}:
-                username = target.username
-                target.delete()
-                CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='eliminar usuario', detalle={'usuario': username})
-                message = f'Usuario {username} eliminado.'
+                target_access, _ = UserAccess.objects.get_or_create(user=target)
+                target_access.role = 'viewer'
+                target_access.is_viewer = True
+                target_access.editable_divisions = []
+                target_access.save(update_fields=['role', 'is_viewer', 'editable_divisions'])
+                CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='eliminar administrador', detalle={'usuario': target.username})
+                message = f'{target.username} ya no es administrador. Su cuenta se conserva como solo consulta.'
         elif action == 'reset_password' and target_id:
             target = get_user_model().objects.filter(pk=target_id).first()
             new_password = request.POST.get('new_password', '')
@@ -1331,8 +1334,17 @@ def setup_collaborators(request):
             else:
                 message = 'Indica usuario, contraseña y al menos una división.'
     managed_users = UserAccess.objects.select_related('user').filter(role__in=['admin', 'collaborator']).order_by('user__username')
-    recent_changes = CambioRegistro.objects.select_related('usuario').order_by('-creado')[:100]
-    return render(request, 'setup_collaborators.html', {'message': message, 'managed_users': managed_users, 'recent_changes': recent_changes, 'divisions': divisions})
+    return render(request, 'setup_collaborators.html', {'message': message, 'managed_users': managed_users, 'divisions': divisions})
+
+
+@login_required
+def administration_log(request):
+    access, _ = UserAccess.objects.get_or_create(user=request.user)
+    access = restore_fixed_staff_access(request.user, access)
+    if request.user.username.casefold() != 'atleti69':
+        return redirect('/')
+    recent_changes = CambioRegistro.objects.select_related('usuario').order_by('-creado')[:500]
+    return render(request, 'administration_log.html', {'recent_changes': recent_changes})
 
 
 @login_required
