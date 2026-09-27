@@ -234,10 +234,19 @@ def home(request):
         return redirect('/login/?expired=1')
     if access.must_change_password and request.GET.get('skip') != '1':
         return redirect('/cambiar-contrasena/')
+    is_superadmin = request.user.username.casefold() == 'atleti69'
+    requested_view = request.GET.get('vista')
+    if is_superadmin and requested_view in {'superadmin', 'usuario'}:
+        request.session['home_view'] = requested_view
+    if not is_superadmin:
+        request.session.pop('home_view', None)
+    user_view = access.role == 'viewer' or (is_superadmin and request.session.get('home_view') == 'usuario')
     new_suggestions_count = Sugerencia.objects.filter(estado='nueva').count()
     return render(request, 'home.html', {
         'is_viewer': access.role == 'viewer',
-        'is_admin': access.role == 'admin',
+        'user_view': user_view,
+        'is_superadmin': is_superadmin,
+        'is_admin': access.role == 'admin' and not user_view,
         'new_suggestions_count': new_suggestions_count,
     })
 
