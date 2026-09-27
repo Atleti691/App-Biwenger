@@ -242,12 +242,16 @@ def home(request):
     if not can_switch_view:
         request.session.pop('home_view', None)
     user_view = access.role == 'viewer' or (can_switch_view and request.session.get('home_view') == 'usuario')
+    selected_menu = request.GET.get('menu', '')
+    if selected_menu not in {'consulta', 'gestion'} or (selected_menu == 'gestion' and user_view):
+        selected_menu = ''
     new_suggestions_count = Sugerencia.objects.filter(estado='nueva').count()
     return render(request, 'home.html', {
         'is_viewer': access.role == 'viewer',
         'user_view': user_view,
         'is_superadmin': is_superadmin,
         'can_switch_view': can_switch_view,
+        'selected_menu': selected_menu,
         'is_admin': access.role == 'admin' and not user_view,
         'new_suggestions_count': new_suggestions_count,
     })
