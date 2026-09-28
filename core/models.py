@@ -108,6 +108,7 @@ class PartidoVIP(models.Model):
     escudo_local = models.URLField(blank=True)
     escudo_visitante = models.URLField(blank=True)
     fecha_cierre = models.DateTimeField()
+    fecha_limite_penalizaciones = models.DateTimeField(null=True, blank=True)
     goles_reales = models.PositiveSmallIntegerField(null=True, blank=True)
     resultado = models.CharField(max_length=80, blank=True)
     goleadores = models.TextField(blank=True)
