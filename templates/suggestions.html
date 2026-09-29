@@ -9,7 +9,7 @@
 </style>
 </head>
 <body><main>
-<header class="hero"><a href="/">Menú principal</a><h1>💡 Buzón de sugerencias</h1><p>Comparte una idea y apoya las mejoras que más te interesen.</p></header>
+<header class="hero"><a href="/" title="Menú principal" aria-label="Ir al menú principal">🏠</a><h1>💡 Buzón de sugerencias</h1><p>Comparte una idea y apoya las mejoras que más te interesen.</p></header>
 {% if message %}<p class="message">{{ message }}</p>{% endif %}
 <section class="card"><details><summary>➕ Enviar una sugerencia</summary><div class="inside"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="create"><label>Título</label><input name="title" maxlength="140" required><label>Categoría</label><select name="category">{% for value,label in categories %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select><label>Explícala</label><textarea name="description" required></textarea><label><input type="checkbox" name="anonymous" value="1" style="width:auto"> Publicarla como anónima</label><br><br><button>Enviar sugerencia</button></form></div></details></section>
 <section class="card"><h2>Ideas de la comunidad</h2>

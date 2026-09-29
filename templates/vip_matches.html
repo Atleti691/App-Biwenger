@@ -12,7 +12,8 @@
 <body class="{% if can_follow_vip and not is_admin %}collaborator-view{% endif %}">
 <main>
 <header class="hero">
-<a href="{% url 'home' %}">Menú principal</a>
+<a href="{% url 'home' %}" title="Menú principal" aria-label="Ir al menú principal">🏠</a>
+<a href="{% url 'vip_statistics' %}">📊 Estadísticas VIP</a>
 <h1>⭐ Partidos VIP</h1>
 <p>Posiciónate, pronostica los goles y juega por premios especiales.</p>
 </header>

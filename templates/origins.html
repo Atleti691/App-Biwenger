@@ -11,7 +11,7 @@
 </head>
 <body>
 <main>
-<header class="hero"><div><h1>🗺️ Procedencia</h1><p>¿De dónde son los managers de Liga Amigos XI?</p></div><a href="{% url 'home' %}">Menú principal</a></header>
+<header class="hero"><div><h1>🗺️ Procedencia</h1><p>¿De dónde son los managers de Liga Amigos XI?</p></div><a href="{% url 'home' %}" title="Menú principal" aria-label="Ir al menú principal">🏠</a></header>
 <section class="panel summary"><div class="stat"><strong>{{ total }}</strong>managers con provincia</div><div class="stat"><strong>{{ markers|length }}</strong>provincias representadas</div></section>
 <section class="panel"><div id="map"></div></section>
 <section class="panel"><h2>Managers por provincia</h2><div class="province-list">{% for marker in markers %}<article class="province"><h3>{{ marker.provincia }} · {{ marker.managers|length }}</h3><ul>{% for item in marker.managers %}<li><strong>{{ item.manager }}</strong><br><small class="muted">{{ item.division }}</small></li>{% endfor %}</ul></article>{% empty %}<p class="muted">Todavía no hay provincias registradas. El mapa se irá completando con las respuestas del formulario.</p>{% endfor %}</div>{% if unresolved %}<div class="warning"><h3>Provincias pendientes de situar</h3><ul>{% for item in unresolved %}<li>{{ item.manager }} — {{ item.provincia }}</li>{% endfor %}</ul></div>{% endif %}</section>

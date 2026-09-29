@@ -8,7 +8,7 @@
 </head>
 <body>
 <main class="card">
-<a class="back" href="{% url 'home' %}">← Menú principal</a>
+<a class="back" href="{% url 'home' %}" title="Menú principal" aria-label="Ir al menú principal">🏠</a>
 <h1>⭐ {{ partido.titulo }}</h1>
 <div class="teams">{% if partido.escudo_local %}<img class="crest" src="{{ partido.escudo_local }}" alt="Escudo {{ partido.equipo_local }}">{% endif %}<span>{{ partido.equipo_local }}</span>
 <span class="versus">VS</span>
