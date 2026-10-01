@@ -1,9 +1,11 @@
 from django.contrib.auth.views import LogoutView, PasswordResetView, PasswordResetDoneView, PasswordResetCompleteView
 from django.urls import path, reverse_lazy
 from .password_recovery import LeaguePasswordResetConfirmView, LeaguePasswordResetForm
+from .tournament_assets import tournament_logo
 from .views import AppLoginView, administration_log, assistant_guide, change_password, communications, contact_form, dashboard, delete_suggestion, home, jornada_api, journey_summary, manage_managers, matches_api, origins, public_home, setup_collaborators, statistics, statistics_api, suggestions, tournaments, vip_matches, vip_penalty_choice, vip_statistics, vip_vote
 
 urlpatterns = [
+    path('logos-torneos/<slug:name>.png', tournament_logo, name='tournament_logo'),
     path('', home, name='home'),
     path('publico/', public_home, name='public_home'),
     path('torneos/', tournaments, name='tournaments'),
