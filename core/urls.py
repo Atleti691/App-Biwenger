@@ -1,5 +1,6 @@
-from django.contrib.auth.views import LogoutView
-from django.urls import path
+from django.contrib.auth.views import LogoutView, PasswordResetView, PasswordResetDoneView, PasswordResetCompleteView
+from django.urls import path, reverse_lazy
+from .password_recovery import LeaguePasswordResetConfirmView
 from .views import AppLoginView, administration_log, assistant_guide, change_password, communications, contact_form, dashboard, delete_suggestion, home, jornada_api, journey_summary, manage_managers, matches_api, origins, public_home, setup_collaborators, statistics, statistics_api, suggestions, tournaments, vip_matches, vip_penalty_choice, vip_statistics, vip_vote
 
 urlpatterns = [
@@ -17,6 +18,10 @@ urlpatterns = [
     path('estadisticas/', statistics, name='statistics'),
     path('estadisticas/partidos-vip/', vip_statistics, name='vip_statistics'),
     path('login/', AppLoginView.as_view(), name='login'),
+    path('recuperar-contrasena/', PasswordResetView.as_view(template_name='password_reset_form.html', email_template_name='password_reset_email.txt', subject_template_name='password_reset_subject.txt', success_url=reverse_lazy('password_reset_done')), name='password_reset'),
+    path('recuperar-contrasena/enviado/', PasswordResetDoneView.as_view(template_name='password_reset_done.html'), name='password_reset_done'),
+    path('recuperar-contrasena/completado/', PasswordResetCompleteView.as_view(template_name='password_reset_complete.html'), name='password_reset_complete'),
+    path('recuperar-contrasena/<uidb64>/<token>/', LeaguePasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('logout/', LogoutView.as_view(next_page='/login/'), name='logout'),
     path('cambiar-contrasena/', change_password, name='change_password'),
     path('configurar-colaboradores/', setup_collaborators, name='setup_collaborators'),
