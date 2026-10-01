@@ -14,7 +14,7 @@
 <section class="card"><details><summary>➕ Enviar una sugerencia</summary><div class="inside"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="create"><label>Título</label><input name="title" maxlength="140" required><label>Categoría</label><select name="category">{% for value,label in categories %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select><label>Explícala</label><textarea name="description" required></textarea><label><input type="checkbox" name="anonymous" value="1" style="width:auto"> Publicarla como anónima</label><br><br><button>Enviar sugerencia</button></form></div></details></section>
 <section class="card"><h2>Ideas de la comunidad</h2>
 {% for item in suggestions %}
-<details><summary>{{ item.titulo }} <span class="pill">{{ item.get_status_display }}</span> <span class="pill">👍 {{ item.vote_count }}</span></summary><div class="inside">
+<details><summary>{{ item.titulo }} {% if item.estado == 'realizada' %}<span class="pill" style="background:#dcfce7;color:#166534"><span aria-hidden="true">✅</span> Realizada</span>{% else %}<span class="pill">{{ item.get_status_display }}</span>{% endif %} <span class="pill">👍 {{ item.vote_count }}</span></summary><div class="inside">
 <div class="meta"><span>{{ item.get_categoria_display }}</span><span>·</span><span>{% if item.anonima %}Anónima{% elif item.autor %}{{ item.autor.username }}{% else %}Usuario eliminado{% endif %}</span><span>·</span><span>{{ item.creada|date:'d/m/Y' }}</span></div>
 <p>{{ item.descripcion|linebreaksbr }}</p>
 {% if item.respuesta %}<div class="response"><strong>Respuesta de administración:</strong><br>{{ item.respuesta|linebreaksbr }}</div>{% endif %}
