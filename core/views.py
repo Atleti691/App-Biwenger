@@ -17,6 +17,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from .forms import FirstPasswordChangeForm, LoginForm
+from .models import CopaReySorteo
 from .models import CambioRegistro, CodigoEmergenciaVIP, ContactoManager, JornadaRegistro, ManagerLiga, PartidoVIP, Sugerencia, UserAccess, VotoPartidoVIP, VotoSugerencia
 from .services.openligadb import get_matches, get_preferred_team_logo, get_team_logo
 
@@ -951,6 +952,8 @@ def vip_matches(request):
 
 
 def vip_penalty_choice(request, token):
+    from .cup import cup_awards
+    copa_awards = cup_awards(2026)
     message = ''
     try:
         identity = signing.loads(token, salt='vip-penalty', max_age=60 * 60 * 24 * 14)
@@ -974,7 +977,7 @@ def vip_penalty_choice(request, token):
             quinielas = int(values.get('q') or 0)
             porras = int(values.get('p') or 0)
             penalty = int(values.get('penalty') or 0)
-            standings[name] = standings.get(name, 0) + app + quinielas * 5 + porras * 10 - penalty + vip_adjustments.get((division, name), 0)
+            standings[name] = standings.get(name, 0) + app + quinielas * 5 + porras * 10 - penalty + vip_adjustments.get((division, name), 0) + copa_awards.get((record.jornada, division, name), 0)
     general_standings = [
         {'position': position, 'manager': name, 'points': points}
         for position, (name, points) in enumerate(sorted(standings.items(), key=lambda item: (-item[1], item[0].casefold())), start=1)
@@ -1144,8 +1147,6 @@ def origins(request):
 def tournaments(request):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
     access = restore_fixed_staff_access(request.user, access)
-    if access.role == 'viewer':
-        return redirect('/')
     divisions = ['Primera Divisi\u00f3n', 'Segunda Divisi\u00f3n', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
     return render(request, 'tournaments.html', {'divisions': divisions})
 
@@ -1222,6 +1223,8 @@ def vip_statistics(request):
 
 @login_required
 def statistics_api(request, season, jornada):
+    from .cup import cup_awards
+    copa_awards = cup_awards(season)
     division = request.GET.get('division', '')
     mode = request.GET.get('mode', 'round')
     queryset = JornadaRegistro.objects.filter(season=season, division=division)
@@ -1244,7 +1247,7 @@ def statistics_api(request, season, jornada):
     for record in records:
         vip_adjustments = vip_adjustments_for_journey(record.jornada)
         for manager, values in record.datos.items():
-            row = totals.setdefault(manager, {'manager': manager, 'app': 0, 'quinielas': 0, 'porras': 0, 'bonus': 0, 'money': 0, 'penalty': 0, 'vip': 0, 'total': 0})
+            row = totals.setdefault(manager, {'manager': manager, 'app': 0, 'quinielas': 0, 'porras': 0, 'bonus': 0, 'money': 0, 'penalty': 0, 'vip': 0, 'cup': 0, 'total': 0})
             app = int(values.get('app') or 0)
             quinielas = int(values.get('q') or 0)
             porras = int(values.get('p') or 0)
@@ -1259,7 +1262,9 @@ def statistics_api(request, season, jornada):
             row['penalty'] += penalty
             vip = vip_adjustments.get((record.division, manager), 0)
             row['vip'] += vip
-            row['total'] += app + bonus - penalty + vip
+            cup = copa_awards.get((record.jornada, record.division, manager), 0)
+            row['cup'] += cup
+            row['total'] += app + bonus - penalty + vip + cup
             for clause in values.get('clauses', []):
                 if not isinstance(clause, dict):
                     continue
@@ -1476,10 +1481,13 @@ def jornada_api(request, season, jornada):
             return JsonResponse({'error': 'Datos no válidos'}, status=400)
     if request.method == 'GET':
         has_vip, vip_positioning, vip_penalties = vip_breakdown_for_journey(jornada, division)
+        from .cup import cup_awards
+        prizes = {manager: points for (award_journey, award_division, manager), points in cup_awards(season).items() if award_journey == jornada and award_division == division}
+        cup_data = {'has_cup': jornada in (13, 15, 17, 19, 36) and CopaReySorteo.objects.filter(season=season).exists(), 'cup_prizes': prizes}
         registro = JornadaRegistro.objects.filter(season=season, jornada=jornada, division=division).order_by('-updated_at').first()
         if not registro:
-            return JsonResponse({'datos': {}, 'cerrada': False, 'has_vip': has_vip, 'vip_positioning': vip_positioning, 'vip_penalties': vip_penalties})
-        return JsonResponse({'datos': registro.datos, 'cerrada': registro.cerrada, 'has_vip': has_vip, 'vip_positioning': vip_positioning, 'vip_penalties': vip_penalties})
+            return JsonResponse({'datos': {}, 'cerrada': False, 'has_vip': has_vip, 'vip_positioning': vip_positioning, 'vip_penalties': vip_penalties, **cup_data})
+        return JsonResponse({'datos': registro.datos, 'cerrada': registro.cerrada, 'has_vip': has_vip, 'vip_positioning': vip_positioning, 'vip_penalties': vip_penalties, **cup_data})
     registro, _ = JornadaRegistro.objects.get_or_create(user_access=access, season=season, jornada=jornada, division=division)
     if request.method == 'POST':
         allowed = fixed_edit_divisions(request.user.username)

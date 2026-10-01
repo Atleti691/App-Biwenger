@@ -10,6 +10,7 @@
 <script type="text/plain" id="europa-logo">{% include "europa_logo.html" %}</script>
 <script type="text/plain" id="conference-logo">{% include "conference_logo.html" %}</script>
 <script type="text/plain" id="jugon-logo">{% include "jugon_logo.html" %}</script>
+<script>document.addEventListener('DOMContentLoaded',()=>{ranking.insertAdjacentHTML('beforeend','<option value="cup">Copa del Rey</option>');titles.cup='Premios Copa del Rey';const previousColumns=columns;columns=function(){return ranking.value==='cup'?[['Premios Copa','cup']]:previousColumns()}})</script>
 <style>.jugon-logo{width:32px;height:32px;object-fit:contain;vertical-align:middle}#table .tm-jugon,#tournament-legend .tm-jugon{background:transparent;padding:0;min-width:32px;height:32px}</style>
 <style>
 #table .tm-champions,#tournament-legend .tm-champions{background:transparent;padding:0;min-width:48px;height:30px}

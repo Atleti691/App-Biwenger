@@ -2,6 +2,7 @@ from django.contrib.auth.views import LogoutView, PasswordResetView, PasswordRes
 from django.urls import path, reverse_lazy
 from .password_recovery import LeaguePasswordResetConfirmView, LeaguePasswordResetForm
 from .tournament_assets import tournament_logo
+from .cup import copa_rey
 from .views import AppLoginView, administration_log, assistant_guide, change_password, communications, contact_form, dashboard, delete_suggestion, home, jornada_api, journey_summary, manage_managers, matches_api, origins, public_home, setup_collaborators, statistics, statistics_api, suggestions, tournaments, vip_matches, vip_penalty_choice, vip_statistics, vip_vote
 
 urlpatterns = [
@@ -9,6 +10,7 @@ urlpatterns = [
     path('', home, name='home'),
     path('publico/', public_home, name='public_home'),
     path('torneos/', tournaments, name='tournaments'),
+    path('torneos/copa-del-rey/', copa_rey, name='copa_rey'),
     path('partidos-vip/', vip_matches, name='vip_matches'),
     path('partidos-vip/votar/<int:partido_id>/', vip_vote, name='vip_vote'),
     path('partidos-vip/penalizacion/<str:token>/', vip_penalty_choice, name='vip_penalty_choice'),

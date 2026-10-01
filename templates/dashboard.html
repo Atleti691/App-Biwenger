@@ -31,7 +31,7 @@
     const storageKey=()=>`liga-amigos-${division.value}-${document.getElementById('jornada').value}`;
     function persistRows(){const state={};document.querySelectorAll('#rows tr').forEach(row=>{const user=row.children[1].textContent;state[user]={app:row.querySelector('.app').value,q:row.querySelector('.q').value,p:row.querySelector('.p').value,money:row.querySelector('.money').value,penalty:row.querySelector('.penalty').value};});localStorage.setItem(storageKey(),JSON.stringify(state));}
     function loadRows(){try{return JSON.parse(localStorage.getItem(storageKey())||'{}')}catch(e){return {}}}
-    function journeyHasData(datos){return Object.values(datos||{}).some(row=>Number(row?.app)||Number(row?.q)||Number(row?.p)||Number(row?.penalty)||Number(String(row?.money||'').replace(/[^0-9]/g,''));}
+    function journeyHasData(datos){return Object.values(datos||{}).some(row=>Number(row?.app)||Number(row?.q)||Number(row?.p)||Number(row?.penalty)||Number(String(row?.money||'').replace(/[^0-9]/g,'')));}
     async function updateJourneyLabels(){const select=document.getElementById('jornada');const selected=select.value;await Promise.all([...select.options].map(async option=>{const round=Number((option.value.match(/\d+/)||[1])[0]);let status='Sin jugar';try{const response=await fetch('/api/jornada/2026/'+round+'/');const result=await response.json();status=result.cerrada?'Cerrada':journeyHasData(result.datos)?'En progreso':'Sin jugar';}catch(e){}option.textContent='Jornada '+round+' — '+status;}));select.value=selected;}
     async function loadRemote(){const round=Number((document.getElementById('jornada').value.match(/\d+/)||[1])[0]);try{const r=await fetch('/api/jornada/2026/'+round+'/');const d=await r.json();if(d.datos&&Object.keys(d.datos).length){localStorage.setItem(storageKey(),JSON.stringify(d.datos));}if(d.cerrada)localStorage.setItem(journeyKey(),'1');else localStorage.removeItem(journeyKey());render();updateJourneyLabels();}catch(e){console.warn('No se pudo cargar la jornada online',e);}}
     async function saveRemote(){const round=Number((document.getElementById('jornada').value.match(/\d+/)||[1])[0]);try{const r=await fetch('/api/jornada/2026/'+round+'/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({datos:loadRows(),cerrada:isClosed()})});if(!r.ok)throw new Error('No se pudo guardar');return true;}catch(e){console.error(e);return false;}}
@@ -156,20 +156,29 @@ document.getElementById('save-clauses').addEventListener('click',()=>document.qu
 // Las dos columnas VIP solo aparecen en jornadas que tengan un Partido VIP.
 async function paintVipColumns(){
   const n=(jornada.value.match(/\d+/)||[1])[0];
-  const response=await fetch('/api/jornada/2026/'+n+'/?division='+encodeURIComponent(division.value));
+  const selectedDivision=division.value;
+  const response=await fetch('/api/jornada/2026/'+n+'/?division='+encodeURIComponent(selectedDivision));
   const result=await response.json();
-  document.querySelectorAll('.vip-column').forEach(element=>element.remove());
-  rows.querySelectorAll('tr').forEach(row=>{const net=row.querySelector('.net');if(net?.dataset.baseNet!==undefined)net.textContent=net.dataset.baseNet});
-  if(!result.has_vip)return;
+  if(division.value!==selectedDivision||(jornada.value.match(/\d+/)||[1])[0]!==n)return;
+  document.querySelectorAll('.vip-column,.cup-column').forEach(element=>element.remove());
   const header=document.querySelector('.results-table thead tr'),netHeader=header.lastElementChild;
-  netHeader.insertAdjacentHTML('beforebegin','<th class="vip-column">Resultado<br>Partido VIP</th><th class="vip-column">Penalizaci&oacute;n<br>Partido VIP</th>');
+  if(result.has_vip)netHeader.insertAdjacentHTML('beforebegin','<th class="vip-column">Resultado<br>Partido VIP</th><th class="vip-column">Penalizaci&oacute;n<br>Partido VIP</th>');
+  if(result.has_cup)netHeader.insertAdjacentHTML('beforebegin','<th class="cup-column">🏆 Premio<br>Copa del Rey</th>');
   rows.querySelectorAll('tr').forEach(row=>{
     const manager=row.children[1].textContent,positioning=Number(result.vip_positioning?.[manager]||0),penalty=Number(result.vip_penalties?.[manager]||0),net=row.querySelector('.net');
     const positionClass=positioning<0?'negative':positioning>0?'voted':'',penaltyClass=penalty<0?'negative':'';
-    net.insertAdjacentHTML('beforebegin',`<td class="vip-column calculated ${positionClass}">${positioning}</td><td class="vip-column calculated ${penaltyClass}">${penalty}</td>`);
-    const base=Number(net.textContent)||0;net.dataset.baseNet=base;net.textContent=base+positioning+penalty;net.classList.toggle('negative',Number(net.textContent)<0);
+    if(result.has_vip)net.insertAdjacentHTML('beforebegin',`<td class="vip-column calculated ${positionClass}">${positioning}</td><td class="vip-column calculated ${penaltyClass}">${penalty}</td>`);
+    if(result.has_cup)net.insertAdjacentHTML('beforebegin',`<td class="cup-column calculated voted">${Number(result.cup_prizes?.[manager]||0)}</td>`);
+    recalculateTournamentTotal(row);
   });
 }
+function recalculateTournamentTotal(row){
+  const number=selector=>Number(row.querySelector(selector)?.value)||0;
+  const extra=[...row.querySelectorAll('td.vip-column,td.cup-column')].reduce((sum,cell)=>sum+(Number(cell.textContent)||0),0);
+  const net=row.querySelector('.net');
+  if(net){net.textContent=number('.app')+number('.q')*5+number('.p')*10-number('.penalty')+extra;net.classList.toggle('negative',Number(net.textContent)<0)}
+}
+rows.addEventListener('input',event=>{const row=event.target.closest('tr');if(row)queueMicrotask(()=>recalculateTournamentTotal(row))});
 const refreshBeforeVipColumns=refresh;
 refresh=async function(){await refreshBeforeVipColumns();await paintVipColumns()};
 division.addEventListener('change',()=>setTimeout(paintVipColumns,0));

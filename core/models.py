@@ -183,6 +183,13 @@ class Sugerencia(models.Model):
         ordering = ('-creada',)
 
 
+class CopaReySorteo(models.Model):
+    season = models.PositiveIntegerField(unique=True)
+    participantes = models.JSONField(default=list)
+    creado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    creado = models.DateTimeField(auto_now_add=True)
+
+
 class VotoSugerencia(models.Model):
     sugerencia = models.ForeignKey(Sugerencia, on_delete=models.CASCADE, related_name='votos')
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
