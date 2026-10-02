@@ -1,0 +1,1 @@
+<div class="versus">{% for name in match.managers %}{{ name }}{% if not forloop.last %} VS {% endif %}{% empty %}Participantes pendientes{% endfor %}{% if match.scores %}<div>{{ match.scores.0 }} – {{ match.scores.1 }}</div>{% endif %}</div>{% if match.winner %}<p class="winner">Ganador: {{ match.winner }}</p>{% endif %}<p class="note">{{ match.reason }}</p>

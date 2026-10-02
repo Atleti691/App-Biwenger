@@ -1158,6 +1158,19 @@ def statistics(request):
 
 
 @login_required
+def league_playoffs(request):
+    from .playoffs import playoff_data
+    divisions = [
+        'Primera División', 'Segunda División', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve',
+    ]
+    division = request.GET.get('division', divisions[0])
+    if division not in divisions:
+        division = divisions[0]
+    return render(request, 'league_playoffs.html', {'divisions': divisions, 'division': division,
+                                                  'playoffs': playoff_data(2026, division)})
+
+
+@login_required
 def vip_statistics(request):
     panels = []
     for partido in PartidoVIP.objects.prefetch_related('votos').order_by('-creado'):

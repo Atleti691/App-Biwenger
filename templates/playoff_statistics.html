@@ -1,0 +1,11 @@
+<script>document.addEventListener('DOMContentLoaded',()=>{
+const box=document.createElement('section');box.className='playoff-preview';document.getElementById('bottom').after(box);
+const baseRender=render;let sequence=0;
+render=function(rows){baseRender(rows);const current=++sequence;box.replaceChildren();box.hidden=mode.value!=='general'||ranking.value!=='total';if(box.hidden)return;
+const title=document.createElement('h3');title.textContent='🎟️ Play-in por el título';box.append(title);
+const note=document.createElement('p');note.textContent='7.º contra 8.º al finalizar J24; el ganador se une a los seis primeros. Vista provisional hasta cerrar J24.';box.append(note);
+const link=document.createElement('a');link.href='{% url "league_playoffs" %}';link.textContent='Ver playoff por el título y ascensos';box.append(link);
+fetch('/api/estadisticas/2026/24/?mode=general&through=24&division='+encodeURIComponent(division.value)).then(r=>{if(!r.ok)throw Error();return r.json()}).then(data=>{if(current!==sequence)return;const list=[...(data.rows||[])].sort((a,b)=>Number(b.total)-Number(a.total)||Number(b.app)-Number(a.app)||a.manager.localeCompare(b.manager));const crossing=document.createElement('p');crossing.className='playoff-candidate';crossing.textContent=(list[6]?.manager||'7.º pendiente')+' VS '+(list[7]?.manager||'8.º pendiente');link.before(crossing)}).catch(()=>{if(current===sequence)note.textContent='No se pudo cargar el cruce. Puedes consultarlo en la pantalla de playoffs.'});
+};
+const legend=document.createElement('div');legend.className='tournament-legend';legend.innerHTML='<span>👑 Playoff título: 1.º–6.º en J24</span><span>🎟️ Play-in título: 7.º–8.º en J24</span><a href="{% url "league_playoffs" %}">Reglas y ascensos</a>';document.getElementById('tournament-legend').after(legend);const previous=render;render=function(rows){previous(rows);legend.hidden=mode.value!=='general'||ranking.value!=='total'};load();
+});</script>
