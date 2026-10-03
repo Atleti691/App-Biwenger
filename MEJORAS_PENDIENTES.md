@@ -18,6 +18,8 @@ Pendiente de aplicar. Rafael ha elegido el icono compacto de la derecha del boce
 
 Referencia original: `C:/Users/Rafael/.codex/generated_images/01a0859b-c393-7391-bc0a-8a23a0e100a9/exec-4679efb0-e072-4ff8-b9da-f3e244a95053.png`. Usar la variante compacta de la derecha, no la imagen completa con ambos diseños.
 
+Aplicado el 3 de octubre: icono aislado con la herramienta integrada de imágenes, guardado en `core/assets/tournaments/zarra-icon-original.png` y conectado mediante la plantilla compartida a Torneos, Estadísticas y leyendas. Prompt de edición: extraer únicamente el icono compacto de la derecha (balón de cuero clásico entrando en la red), conservar su diseño y colores, eliminar el escudo izquierdo y el texto, y dar fondo transparente con margen uniforme.
+
 ## Icono del playoff de descenso — 3 de octubre de 2026
 
 Pendiente para la próxima tanda de mejoras. Rafael quiere dos puños con guantes de boxeo enfrentados, uno azul y otro rojo, como distintivo del playoff de descenso, en lugar del icono actual de dos equipos enfrentados. Aplicarlo de forma consistente en Estadísticas y Torneos, manteniendo el tamaño, la alineación y la etiqueta accesible «Playoff de descenso». No sustituir el distintivo del descenso directo.
