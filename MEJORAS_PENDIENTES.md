@@ -1,5 +1,15 @@
 # Mejoras pendientes
 
+## Aplazadas y Donatelo — 4 de octubre de 2026
+
+Preparado en el código: «Jornada 1AP» inmediatamente después de J2 y «Jornada 6AP» inmediatamente después de J5; identificadores internos 101 y 106 sin cambios. Estado a continuación del nombre. Orden y etiquetas compartidos entre Introducir datos, Resumen de jornadas, Estadísticas, registro de administración y etiquetas VIP; correos de cierre con el nombre correcto.
+
+eMCasa pasa a Donatelo. Migración 0022 traslada roster, contactos, claves de jornadas, destinos de cláusulas, votos y objetivos de robo VIP, códigos y cuadro guardado de Copa del Rey. Conserva datos, identificadores, contraseña, permisos y nombre de acceso existente. Comunicaciones reconoce ese acceso anterior y no crea una cuenta duplicada; los enlaces anteriores de reparto VIP siguen resolviendo al manager renombrado. Si ya existe otro Donatelo con datos en el mismo contexto, se detiene el traslado para no sobrescribirlo. Es necesario ejecutar las migraciones en el servidor para aplicar el cambio de nombre a los datos existentes.
+
+## Corregir pérdida del detalle de cláusulas — 4 de octubre de 2026
+
+Aplicado en el código: eliminado un segundo guardado de jornada que enviaba solo los totales y sobrescribía el detalle. Editor único que vuelve a mostrar las cláusulas guardadas y permite retirar una fila concreta; compacta las restantes y recalcula las penalizaciones según su orden. Guardado específico por manager, sin alterar sus puntos APP/quinielas/porras ni los datos de otros managers. Los guardados ordinarios preservan el detalle existente, y se edita el registro más reciente de la jornada, no una copia antigua de otra cuenta. Historial con los detalles anteriores y posteriores. Jornadas cerradas requieren reapertura explícita. Advertencia si solo quedan totales antiguos; borrar todas las cláusulas requiere confirmación. No reconstruye los importes originales que ya se perdieron. No requiere migración.
+
 ## Playoffs por el título y ascenso — 3 de octubre de 2026
 
 Reglas confirmadas: torneo independiente en cada división; seis primeros de la general J24 y ganador del play-in 7.º–8.º en J25. Liguilla todos contra todos J26–32, siete participantes, seis partidos y un descanso por manager. Total neto con todos los ajustes. Cuatro primeros a Final Four: 1.º–4.º y 2.º–3.º; semifinales ida J34, vuelta J35; final y tercer puesto J36 (este calendario sustituye el final inicial en J35). Desempate de eliminatorias por mejor posición en la general.

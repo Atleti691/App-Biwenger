@@ -6,7 +6,7 @@
 <header class="hero"><div><h1>🏆 Torneos Liga Amigos XI</h1><p>Competiciones, clasificados y eliminatorias</p></div><a href="{% url 'home' %}" title="Menú principal" aria-label="Ir al menú principal">🏠</a></header>
 <section class="panel"><h2>Elige tu competición</h2><p class="empty">Pulsa una tarjeta para descubrir quiénes estarían clasificados ahora mismo.</p><div class="tournaments">
 <article class="tournament-card"><h3>{% include "champions_logo.html" %} Champions League</h3><p>Clasificados del 1.º al 3.º de cada división, más Estefanía como campeona de la edición anterior.</p><button data-tournament="Champions League">Consultar</button></article>
-<article class="tournament-card"><h3><img class="jugon-badge" alt="Torneo Jugón" src="{% url 'tournament_logo' 'jugon-badge' %}"> Torneo Jugón</h3><p>Clasificados del 4.º al 6.º de cada división, más eMCasa como campeón de la edición anterior.</p><button data-tournament="Torneo Jugón">Consultar</button></article>
+<article class="tournament-card"><h3><img class="jugon-badge" alt="Torneo Jugón" src="{% url 'tournament_logo' 'jugon-badge' %}"> Torneo Jugón</h3><p>Clasificados del 4.º al 6.º de cada división, más Donatelo como campeón de la edición anterior.</p><button data-tournament="Torneo Jugón">Consultar</button></article>
 <article class="tournament-card"><h3>{% include "europa_logo.html" %} Europa League</h3><p>Clasificados del 7.º al 9.º de cada división, más EmiGeta como campeona de la edición anterior.</p><button data-tournament="Europa League">Consultar</button></article>
 <article class="tournament-card"><h3>{% include "zarra_logo.html" %} Torneo Zarra</h3><p>Clasificados del 10.º al 12.º de cada división.</p><button data-tournament="Torneo Zarra">Consultar</button></article>
 <article class="tournament-card"><h3>{% include "conference_logo.html" %} Conference League</h3><p>Clasificados del 13.º al 16.º de cada división.</p><button data-tournament="Conference League">Consultar</button></article>
@@ -45,7 +45,7 @@ const tournamentRanges={'Champions League':[0,3],'Torneo Jugón':[3,6],'Europa L
 const tournamentGuests={
  'Champions League':{manager:'Estefanía',division:'Primera RFEF'},
  'Europa League':{manager:'EmiGeta',division:'Segunda RFEF'},
- 'Torneo Jugón':{manager:'eMCasa',division:'Segunda División'}
+ 'Torneo Jugón':{manager:'Donatelo',division:'Segunda División'}
 };
 function tournamentQualifiers(rows,divisionName,tournament){
  const range=tournamentRanges[tournament],guest=tournamentGuests[tournament],ranking=sorted(rows||[]);

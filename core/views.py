@@ -20,8 +20,18 @@ from .forms import FirstPasswordChangeForm, LoginForm
 from .models import CopaReySorteo
 from .models import CambioRegistro, CodigoEmergenciaVIP, ContactoManager, JornadaRegistro, ManagerLiga, PartidoVIP, Sugerencia, UserAccess, VotoPartidoVIP, VotoSugerencia
 from .services.openligadb import get_matches, get_preferred_team_logo, get_team_logo
+from .journeys import journey_label, ordered_journeys
 
 logger = logging.getLogger(__name__)
+
+
+def manager_account(manager):
+    user = get_user_model().objects.filter(username__iexact=manager).first()
+    if user is None and manager == 'Donatelo':
+        user = get_user_model().objects.filter(username__iexact='eMCasa').first()
+        if user is None:
+            user = get_user_model().objects.filter(username__iexact='EM Casa').first()
+    return user
 
 
 def send_vip_penalty_links(request, partido, votes):
@@ -173,7 +183,7 @@ def fixed_edit_divisions(username):
 
 LEAGUE_MANAGERS = {
     'Primera Divisi\u00f3n': ['AlexJulio','Rexza','C.D.F. Arrieritos','Gestafa FC','Golden Ball','Ivanetti',"Kabe's Team",'Maceda','Mouki','Munera City','Raul C','Real JR','I\u00f1igoool!!!!','Reventao','Tuercebotas','Llull Team','Pablo Cuevas','Joselillo81'],
-    'Segunda Divisi\u00f3n': ['Marina','Kataki Villenero','Carbayon','At. Aviacion','Vendy','Goyo','Rocky Team','Ruben 1903ATM','Jackobo','Baetulo','FC Almog\u00e1vers','Re Creativo Igualadino','Rapido de Bouzas','Gasteiz United','eMCasa','Gabrielix de Asturin','Adrianpt260','SpartanAgain'],
+    'Segunda Divisi\u00f3n': ['Marina','Kataki Villenero','Carbayon','At. Aviacion','Vendy','Goyo','Rocky Team','Ruben 1903ATM','Jackobo','Baetulo','FC Almog\u00e1vers','Re Creativo Igualadino','Rapido de Bouzas','Gasteiz United','Donatelo','Gabrielix de Asturin','Adrianpt260','SpartanAgain'],
     'Primera RFEF': ['Estefan\u00eda','Guerreros F.C','Pcotop Team','El Cabo','Checo21','C.D. Covadonga','Patontografos F.C','CD Cayon','Resalso','Beagar13','Gsgg Team','Manuymarian',"Minuto 94'",'JAM F.C.','Litoscaboalles','Atleti69','Maicame'],
     'Segunda RFEF': ['Semela','Soar FC','UnaiRZ','Izan Navarro','JaviArsenal','Jose Mourinho','Mu\u00f1eko','Danilo77','Alex SC','K87','EmiGeta','A.A. Ponte Preta','Atletico Zaragoza','Peluso F.C.','Emilio Ramos','Sevi-21','Esta NFL No la Entiendo','Deckers'],
     'Liga Moeve': ['Titanes65','Antbariba','El Macho','Palacios FC','Real Oviedo','OskitarTeam','Jopehe95','Schalke Te meto','Caimans','Shaiel Afonso Rodriguez','RBN147','Ivan Diaz'],
@@ -267,8 +277,7 @@ def journey_summary(request):
         logout(request)
         return redirect('/login/?expired=1')
     divisions = ['Primera División', 'Segunda División', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
-    journey_numbers = list(range(1, 39)) + [101, 106]
-    display_names = {101: 'Jornada 1 AP', 106: 'Jornada 6 AP'}
+    journey_numbers = ordered_journeys()
     latest_records = {}
     records = JornadaRegistro.objects.filter(season=2026, division__in=divisions).order_by('-updated_at')
     for record in records:
@@ -293,7 +302,7 @@ def journey_summary(request):
                 updated = record.updated_at
             counts[key] += 1
             states.append({'division': division, 'key': key, 'label': label, 'updated': updated})
-        rows.append({'number': number, 'label': display_names.get(number, f'Jornada {number}'), 'states': states})
+        rows.append({'number': number, 'label': journey_label(number), 'states': states})
     return render(request, 'journey_summary.html', {
         'divisions': divisions,
         'rows': rows,
@@ -493,7 +502,7 @@ def communications(request):
     access_action_result = request.session.pop('access_action_result', None)
     if request.method == 'POST' and request.POST.get('action') == 'reset_viewer_access':
         contact = get_object_or_404(ContactoManager, pk=request.POST.get('contact_id'))
-        user = get_user_model().objects.filter(username__iexact=contact.manager).first()
+        user = manager_account(contact.manager)
         if not user:
             message = f'Todavía no existe una cuenta para {contact.manager}.'
         else:
@@ -548,7 +557,7 @@ def communications(request):
         contact = get_object_or_404(ContactoManager, pk=request.POST.get('contact_id'))
         if not contact.email.strip():
             return JsonResponse({'ok': False, 'manager': contact.manager, 'error': 'No tiene correo registrado'}, status=400)
-        user = get_user_model().objects.filter(username__iexact=contact.manager).first()
+        user = manager_account(contact.manager)
         user_created = user is None
         if user:
             account = UserAccess.objects.filter(user=user).first()
@@ -593,7 +602,7 @@ def communications(request):
         login_url = request.build_absolute_uri('/login/')
         access_messages = []
         for contact in ContactoManager.objects.exclude(email='').order_by('division', 'manager'):
-            existing_user = get_user_model().objects.filter(username__iexact=contact.manager).first()
+            existing_user = manager_account(contact.manager)
             if existing_user:
                 existing_access, _ = UserAccess.objects.get_or_create(user=existing_user)
                 restore_fixed_staff_access(existing_user, existing_access)
@@ -635,6 +644,9 @@ def communications(request):
             message = 'El correo y la provincia son obligatorios.'
     contacts = {(item.division, item.manager): item for item in ContactoManager.objects.all()}
     app_accounts = {account.user.username.casefold(): account for account in UserAccess.objects.select_related('user')}
+    legacy_account = app_accounts.get('emcasa') or app_accounts.get('em casa')
+    if legacy_account:
+        app_accounts.setdefault('donatelo', legacy_account)
     rows = [{'division': division, 'manager': manager, 'contact': contacts.get((division, manager)), 'app_account': app_accounts.get(manager.casefold())} for division, managers in LEAGUE_MANAGERS.items() for manager in managers]
     completed = sum(1 for row in rows if row['contact'] and row['contact'].email.strip())
     total = len(rows)
@@ -962,6 +974,8 @@ def vip_penalty_choice(request, token):
     partido = get_object_or_404(PartidoVIP, pk=identity.get('partido'), cerrado=True)
     division = identity.get('division', '')
     manager = identity.get('manager', '')
+    if division == 'Segunda División' and manager.replace(' ', '').casefold() == 'emcasa':
+        manager = 'Donatelo'
     vote = get_object_or_404(VotoPartidoVIP, partido=partido, division=division, manager=manager, pronostico_goles=partido.opcion_goles_real)
     standings = {name: 0 for name in LEAGUE_MANAGERS.get(division, [])}
     seen_journeys = set()
@@ -1154,7 +1168,7 @@ def tournaments(request):
 @login_required
 def statistics(request):
     divisions = ['Primera División', 'Segunda División', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
-    return render(request, 'statistics.html', {'divisions': divisions, 'jornadas': range(1, 39)})
+    return render(request, 'statistics.html', {'divisions': divisions, 'jornadas': ordered_journeys()})
 
 
 @login_required
@@ -1466,7 +1480,7 @@ def dashboard(request):
         'divisions': divisions,
         'users': users,
         'initial_users': next(iter(users.values())),
-        'jornadas': range(1, 39),
+        'jornadas': ordered_journeys(),
         'editable_divisions': list(dict.fromkeys(editable_divisions)),
         'can_edit_all': request.user.username.casefold() == 'atleti69' or access.role == 'admin',
     })
@@ -1482,6 +1496,7 @@ def matches_api(request, season, round_number):
 
 @csrf_exempt
 @login_required
+@transaction.atomic
 def jornada_api(request, season, jornada):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
     access = restore_fixed_staff_access(request.user, access)
@@ -1501,29 +1516,61 @@ def jornada_api(request, season, jornada):
         if not registro:
             return JsonResponse({'datos': {}, 'cerrada': False, 'has_vip': has_vip, 'vip_positioning': vip_positioning, 'vip_penalties': vip_penalties, **cup_data})
         return JsonResponse({'datos': registro.datos, 'cerrada': registro.cerrada, 'has_vip': has_vip, 'vip_positioning': vip_positioning, 'vip_penalties': vip_penalties, **cup_data})
-    registro, _ = JornadaRegistro.objects.get_or_create(user_access=access, season=season, jornada=jornada, division=division)
     if request.method == 'POST':
         allowed = fixed_edit_divisions(request.user.username)
         can_edit = access.role == 'admin' or '*' in allowed or division in access.editable_divisions or division in allowed
         if not can_edit:
             return JsonResponse({'error': 'Solo puedes consultar esta división'}, status=403)
         payload = json.loads(request.body or '{}')
+        from .clause_data import clause_snapshot, clause_totals, merge_journey_data, normalize_clauses
+        # Serialize saves from the same account and edit the record used by GET,
+        # not an older account-specific copy of the jornada.
+        UserAccess.objects.select_for_update().get(pk=access.pk)
+        registro = JornadaRegistro.objects.select_for_update().filter(
+            season=season, jornada=jornada, division=division,
+        ).order_by('-updated_at', '-id').first()
+        if registro is None:
+            registro = JornadaRegistro.objects.create(user_access=access, season=season, jornada=jornada, division=division)
         if registro.cerrada:
             is_admin = request.user.username.casefold() == 'atleti69' or access.role == 'admin'
             is_reopening = payload.get('cerrada') is False
             if not is_admin or not is_reopening:
                 return JsonResponse({'error': 'La jornada está cerrada. Debes reabrirla antes de modificarla.'}, status=403)
         was_closed = registro.cerrada
-        registro.datos = payload.get('datos', {})
+        before_clauses = clause_snapshot(registro.datos)
+        clause_update = payload.get('clause_update')
+        try:
+            if clause_update is not None:
+                if not isinstance(clause_update, dict):
+                    raise ValueError('Actualización de cláusulas no válida.')
+                manager = clause_update.get('manager')
+                if not isinstance(manager, str) or not manager:
+                    raise ValueError('Manager de jornada no válido.')
+                baseline = payload.get('datos', {}).get(manager) if isinstance(payload.get('datos'), dict) else None
+                if manager not in registro.datos and not isinstance(baseline, dict):
+                    raise ValueError('Manager de jornada no válido.')
+                items = normalize_clauses(clause_update.get('clauses'))
+                data = {name: dict(row) for name, row in registro.datos.items()}
+                data[manager] = {**data.get(manager, baseline or {}), 'clauses': items, **clause_totals(items)}
+            else:
+                data = merge_journey_data(registro.datos, payload.get('datos', {}))
+        except ValueError as exc:
+            return JsonResponse({'error': str(exc)}, status=400)
+        registro.datos = data
         registro.cerrada = bool(payload.get('cerrada', registro.cerrada))
         registro.save(update_fields=['datos', 'cerrada', 'updated_at'])
-        CambioRegistro.objects.create(usuario=request.user, division=division, season=season, jornada=jornada, accion='guardar jornada', detalle={'cerrada': registro.cerrada, 'usuarios': len(registro.datos)})
+        detail = {'cerrada': registro.cerrada, 'usuarios': len(registro.datos)}
+        after_clauses = clause_snapshot(registro.datos)
+        if before_clauses != after_clauses:
+            detail.update({'clausulas_antes': before_clauses, 'clausulas_despues': after_clauses})
+        CambioRegistro.objects.create(usuario=request.user, division=division, season=season, jornada=jornada,
+                                      accion='editar cláusulas' if clause_update is not None else 'guardar jornada', detalle=detail)
         if registro.cerrada and not was_closed:
             recipients = list(ContactoManager.objects.exclude(email='').values_list('email', flat=True).distinct())
             if recipients:
                 EmailMessage(
-                    subject=f'Liga Amigos XI — jornada {jornada} cerrada',
-                    body=f'La jornada {jornada} de {division} ha sido cerrada. Ya puedes consultar los resultados y las clasificaciones en la aplicación.',
+                    subject=f'Liga Amigos XI — {journey_label(jornada)} cerrada',
+                    body=f'La {journey_label(jornada).lower()} de {division} ha sido cerrada. Ya puedes consultar los resultados y las clasificaciones en la aplicación.',
                     bcc=recipients,
                 ).send(fail_silently=True)
         return JsonResponse({'ok': True, 'cerrada': registro.cerrada})

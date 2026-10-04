@@ -1,0 +1,35 @@
+<style>.clause-remove{background:#b42318;font-size:12px;padding:6px}.clause-table th:last-child{width:65px}.clause-summary{font-weight:bold;margin:10px 0}.clause-warning{color:#a05f00!important}#clause-status{display:block;margin:10px 0}</style>
+<script>
+// One authoritative clause editor; old bubble handlers cannot repaint its saved values.
+(()=>{
+const modal=document.getElementById('clause-modal'),tbody=document.getElementById('clause-rows'),save=document.getElementById('save-clauses'),cancel=document.getElementById('close-clauses'),status=document.getElementById('clause-status');
+let context=null,busy=false;
+function lockNavigation(locked){division.disabled=locked;jornada.disabled=locked;document.getElementById('close-journey').disabled=locked||(remoteClosed&&CURRENT!=='Atleti69')}
+const parse=value=>Number(String(value||'').replace(/\D/g,''))||0;
+const format=value=>Number(value||0).toLocaleString('es-ES',{useGrouping:'always',maximumFractionDigits:0})+' €';
+const esc=value=>String(value||'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const summary=document.createElement('p');summary.className='clause-summary';tbody.closest('.scroll').after(summary);
+const items=()=>[...tbody.querySelectorAll('tr')].map(tr=>({to:tr.querySelector('.cl-by').value,value:parse(tr.querySelector('.cl-value').value)})).filter(item=>item.value>0);
+function update(){let index=0,money=0,points=0;tbody.querySelectorAll('tr').forEach(tr=>{const value=parse(tr.querySelector('.cl-value').value),level=Math.floor(index/2)+1;tr.querySelector('.cl-money').textContent=format(value?value*level/10:0);tr.querySelector('.cl-points').textContent=value?level*2:0;if(value){money+=value*level/10;points+=level*2;index++}});summary.textContent='Total de penalización: '+format(Math.round(money))+' · '+points+' puntos';return {money:Math.round(money),points}}
+function paint(list){const names=(U[context.division]||[]).filter(name=>name!==context.manager);tbody.innerHTML=Array.from({length:12},(_,index)=>{const item=clauseItem(list[index]),options=['',...new Set([...names,...(item.to?[item.to]:[])])];return '<tr><td>'+(index+1)+'</td><td><select class="cl-by">'+options.map(name=>'<option value="'+esc(name)+'" '+(name===item.to?'selected':'')+'>'+esc(name||'Seleccionar manager')+'</option>').join('')+'</select></td><td><input class="cl-value" type="text" inputmode="numeric" value="'+(item.value?format(item.value):'')+'"></td><td class="cl-money"></td><td class="cl-points"></td><td><button type="button" class="clause-remove" title="Retirar esta cláusula">Retirar</button></td></tr>'}).join('');update()}
+rows.addEventListener('click',event=>{const button=event.target.closest('.clauses');if(!button)return;event.preventDefault();event.stopImmediatePropagation();if(button.disabled||busy)return;clauseRow=button.closest('tr');context={manager:clauseRow.children[1].textContent,division:division.value,journey:(jornada.value.match(/\d+/)||[1])[0],row:clauseRow};document.querySelector('.clause-table thead tr').innerHTML='<th>#</th><th>Realizada a</th><th>Valor cláusula</th><th>Penalización dinero</th><th>Penalización puntos</th><th>Retirar</th>';document.getElementById('clause-user').textContent=context.manager;const saved=CLAUSES[context.manager]||[];paint(saved);status.classList.remove('clause-warning');status.textContent=saved.length?'Cláusulas guardadas: puedes corregirlas o retirarlas.':parse(context.row.querySelector('.money').value)||Number(context.row.querySelector('.penalty').value)?'Esta jornada conserva los totales, pero no el detalle antiguo. No se puede reconstruir automáticamente.':'';if(!saved.length&&status.textContent)status.classList.add('clause-warning');modal.style.display='block';},true);
+tbody.addEventListener('input',event=>{if(event.target.matches('.cl-value')){event.stopImmediatePropagation();update()}},true);
+tbody.addEventListener('click',event=>{if(!event.target.matches('.clause-remove')||busy)return;const tr=event.target.closest('tr');tr.querySelector('.cl-value').value='';tr.querySelector('.cl-by').value='';paint(items());status.textContent='Cláusula retirada del borrador. Pulsa Guardar cláusulas para confirmar.'});
+cancel.onclick=()=>{if(!busy){modal.style.display='none';context=null}};
+save.onclick=async()=>{
+ if(busy||!context)return;
+ if(context.division!==division.value||context.journey!==(jornada.value.match(/\d+/)||[1])[0]){status.textContent='Has cambiado de jornada o división. Cancela y vuelve a abrir las cláusulas.';return}
+ const selected=items(),totals=update(),old=CLAUSES[context.manager]||[];
+ if(!selected.length&&(old.length||parse(context.row.querySelector('.money').value)||Number(context.row.querySelector('.penalty').value))&&!confirm('Vas a retirar todas las cláusulas de este manager y dejar sus penalizaciones a cero. ¿Confirmas?'))return;
+ busy=true;lockNavigation(true);save.disabled=true;cancel.disabled=true;document.getElementById('save').disabled=true;status.textContent='Guardando cláusulas…';
+ try{
+  const response=await fetch('/api/jornada/2026/'+context.journey+'/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({division:context.division,datos:rowData(),clause_update:{manager:context.manager,clauses:selected}})});
+  const result=await response.json();if(!response.ok)throw Error(result.error||'No se pudieron guardar');
+  CLAUSES[context.manager]=selected;context.row.querySelector('.money').value=format(totals.money);context.row.querySelector('.penalty').value=totals.points;calc(context.row);recalculateTournamentTotal(context.row);status.textContent='Cláusulas guardadas online. Puedes volver a abrirlas para revisarlas.';modal.style.display='none';context=null;
+ }catch(error){status.textContent=error.message||'Error de conexión. Los cambios no se han confirmado; la ventana sigue abierta.'}
+ finally{busy=false;lockNavigation(false);save.disabled=false;cancel.disabled=false;document.getElementById('save').disabled=remoteClosed||!(EDIT_ALL||EDITABLE.includes(division.value))}
+};
+// Saving the jornada sends clause details once, not two competing requests.
+document.getElementById('save').onclick=async()=>{if(busy)return;busy=true;const button=document.getElementById('save'),message=document.getElementById('saved');button.disabled=true;message.textContent='Guardando jornada…';try{const n=(jornada.value.match(/\d+/)||[1])[0],response=await fetch('/api/jornada/2026/'+n+'/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({division:division.value,datos:rowData(),cerrada:remoteClosed})}),result=await response.json();if(!response.ok)throw Error(result.error||'Error al guardar');message.textContent='Jornada guardada online';await refresh()}catch(error){message.textContent=error.message||'Error de conexión; no se ha confirmado el guardado'}finally{busy=false;button.disabled=remoteClosed||!(EDIT_ALL||EDITABLE.includes(division.value))}};
+})();
+</script>
