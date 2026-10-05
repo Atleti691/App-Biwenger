@@ -2,6 +2,24 @@
 from copy import deepcopy
 
 
+def missing_clause_details(data):
+    """Totals prove clauses existed, but cannot reconstruct their individual detail."""
+    missing = []
+    for name, row in (data or {}).items():
+        if not isinstance(row, dict):
+            continue
+        try:
+            detail = normalize_clauses(row.get('clauses', []))
+        except ValueError:
+            detail = []
+        def nonzero(value):
+            return any(char in '123456789' for char in str(value or ''))
+        if not detail and (nonzero(row.get('money')) or nonzero(row.get('penalty'))):
+            missing.append({'manager': name, 'money': row.get('money') or '—',
+                            'penalty': row.get('penalty') or '0'})
+    return missing
+
+
 def normalize_clauses(items):
     if not isinstance(items, list) or len(items) > 12:
         raise ValueError('Las cláusulas deben ser una lista de hasta 12 elementos.')

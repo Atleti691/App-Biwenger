@@ -1,0 +1,24 @@
+<section style="margin:18px 0;padding:18px;background:white;border-radius:16px;border-left:5px solid #d33d35">
+<h2 style="margin:0 0 10px">🔎 Cláusulas pendientes de recuperar</h2>
+<p>Señalamos las jornadas que conservan importes o penalizaciones, pero no el detalle de las cláusulas. No se modifica ningún dato.</p>
+{% if clause_review %}
+<p><strong>{{ clause_review|length }} jornadas por división · {{ clause_review_managers }} managers para revisar</strong></p>
+{% regroup clause_review by journey as journeys_with_missing %}
+{% for group in journeys_with_missing %}
+<details style="margin:10px 0;border:1px solid #ead5d3;border-radius:10px;padding:12px">
+<summary style="cursor:pointer;font-weight:bold">{{ group.grouper }} · {{ group.list|length }} divisiones con detalle ausente</summary>
+{% for item in group.list %}
+<h3>{{ item.division }} · {% if item.closed %}Cerrada{% else %}Abierta{% endif %}</h3>
+<div style="overflow:auto"><table style="min-width:440px"><thead><tr><th>Manager</th><th>Dinero guardado</th><th>Penalización guardada</th></tr></thead><tbody>
+{% for manager in item.managers %}<tr><td>{{ manager.manager }}</td><td>{{ manager.money }}</td><td>{{ manager.penalty }}</td></tr>{% endfor %}
+</tbody></table></div>
+{% if item.closed %}<p>Para corregir esta jornada, el superadministrador debe reabrirla primero.</p>{% endif %}
+{% endfor %}
+</details>
+{% endfor %}
+<a href="/datos/">Ir a introducir datos para revisar las cláusulas</a>
+{% else %}
+<p style="color:#14733c">✓ No se han detectado importes o penalizaciones sin detalle de cláusulas.</p>
+{% endif %}
+<p class="note">Este resumen no puede detectar cláusulas que no hayan dejado ningún importe ni penalización, ni reconstruir sus importes individuales. Se consulta el último registro guardado de cada división y jornada, no copias antiguas.</p>
+</section>

@@ -21,6 +21,7 @@ from .models import CopaReySorteo
 from .models import CambioRegistro, CodigoEmergenciaVIP, ContactoManager, JornadaRegistro, ManagerLiga, PartidoVIP, Sugerencia, UserAccess, VotoPartidoVIP, VotoSugerencia
 from .services.openligadb import get_matches, get_preferred_team_logo, get_team_logo
 from .journeys import journey_label, ordered_journeys
+from .clause_data import missing_clause_details
 
 logger = logging.getLogger(__name__)
 
@@ -284,10 +285,15 @@ def journey_summary(request):
         latest_records.setdefault((record.jornada, record.division), record)
     counts = {'empty': 0, 'open': 0, 'pending': 0, 'closed': 0}
     rows = []
+    clause_review = []
     for number in journey_numbers:
         states = []
         for division in divisions:
             record = latest_records.get((number, division))
+            missing = missing_clause_details(record.datos) if record else []
+            if missing:
+                clause_review.append({'journey': journey_label(number), 'division': division,
+                                     'closed': record.cerrada, 'managers': missing})
             if not record:
                 key, label = 'empty', 'Sin rellenar'
                 updated = None
@@ -307,6 +313,8 @@ def journey_summary(request):
         'divisions': divisions,
         'rows': rows,
         'counts': counts,
+        'clause_review': clause_review,
+        'clause_review_managers': sum(len(item['managers']) for item in clause_review),
         'total': len(journey_numbers) * len(divisions),
     })
 
