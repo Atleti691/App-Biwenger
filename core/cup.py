@@ -66,9 +66,18 @@ def participants(records, roster):
 
 
 def qualification_outlook(records, roster):
-    """A transparent points-gap scenario, not a probability or guaranteed qualification."""
+    """Individual net-points projection; AP parts share their base jornada denominator."""
     from .views import vip_adjustments_for_journey
     ranks = standings(records, roster, 8)
+    vip_cache = {}
+    def net(record, name, number, division):
+        row = record.datos.get(name, {})
+        if row.get('app') in (None, ''):
+            return None
+        if number not in vip_cache:
+            vip_cache[number] = vip_adjustments_for_journey(number)
+        return (int(row['app']) + int(row.get('q') or 0) * 5 + int(row.get('p') or 0) * 10
+                - int(row.get('penalty') or 0) + vip_cache[number].get((division, name), 0))
     result = []
     for division, names in roster.items():
         if not names:
@@ -78,56 +87,83 @@ def qualification_outlook(records, roster):
         eligible = [name for name in ordered if name not in guests]
         cutoff = eligible[5] if len(eligible) >= 6 else None
         cutoff_total = ranks[(division, cutoff)]['total'] if cutoff else None
-        sample, pending, incomplete = [], [], []
-        for number in list(range(1, 9)) + [101, 106]:
+        sample, pending, incomplete, postponed_pending = [], [], [], []
+        individual_samples = {name: [] for name in names}
+        for number in range(1, 9):
             record = records.get((division, number))
             if not record or not record.cerrada:
-                if number <= 8:
-                    pending.append(number)
+                pending.append(number)
                 continue
-            if any(record.datos.get(name, {}).get('app') in (None, '') for name in names):
+            ap_number = {1: 101, 6: 106}.get(number)
+            ap = records.get((division, ap_number)) if ap_number else None
+            ap_ready = bool(ap and ap.cerrada)
+            if ap_number and (not ap_ready or any(ap.datos.get(name, {}).get('app') in (None, '') for name in names)):
+                postponed_pending.append(ap_number)
+            values = {}
+            for name in names:
+                value = net(record, name, number, division)
+                if value is None:
+                    continue
+                if ap_ready:
+                    extra = net(ap, name, ap_number, division)
+                    if extra is not None:
+                        value += extra
+                individual_samples[name].append(value)
+                values[name] = value
+            if len(values) != len(names):
                 incomplete.append(number)
                 continue
-            vip = vip_adjustments_for_journey(number)
-            total = sum(int(record.datos[name].get('app') or 0)
-                        + int(record.datos[name].get('q') or 0) * 5
-                        + int(record.datos[name].get('p') or 0) * 10
-                        - int(record.datos[name].get('penalty') or 0)
-                        + vip.get((division, name), 0) for name in names)
+            total = sum(values.values())
             sample.append({'number': number, 'total': total, 'average': total / len(names)})
         average = sum(row['total'] for row in sample) / (len(names) * len(sample)) if sample else None
         remaining = len(pending)
-        reference = average * remaining if average is not None else None
+        averages = {name: sum(values) / len(values) if values else None for name, values in individual_samples.items()}
+        projections = {name: round(ranks[(division, name)]['total'] + averages[name] * remaining, 6)
+                       if averages[name] is not None else None for name in names}
+        projection_ready = all(projections[name] is not None for name in eligible) and not incomplete
+        projected_eligible = sorted(eligible, key=lambda name: (-projections[name], ranks[(division, name)]['order'])) if projection_ready else []
+        projected_cutoff = projected_eligible[5] if len(projected_eligible) >= 6 else None
+        projected_order = sorted(names, key=lambda name: (-projections[name], ranks[(division, name)]['order'])) if projection_ready and all(v is not None for v in projections.values()) else []
         players = []
         for name in ordered:
             rank = ranks[(division, name)]
             gap = max(0, cutoff_total - rank['total']) if cutoff_total is not None else None
             inside = name in eligible[:6]
             guest = name in guests
+            own_average = averages[name]
+            reference = own_average * remaining if own_average is not None else None
+            projected_inside = name in projected_eligible[:6] if projected_cutoff else None
+            projected_position = 1 + sum(projections[other] > projections[name] for other in projected_order) if name in projected_order else None
+            boundary_tie = bool(projected_cutoff and projections[name] == projections[projected_cutoff]
+                                and any(projections[other] == projections[projected_cutoff] for other in projected_eligible[6:]))
             if guest:
                 status = 'Invitado: plaza asegurada'
-            elif incomplete or cutoff is None:
+            elif not projection_ready or projected_cutoff is None:
                 status = 'Faltan datos para valorar'
+            elif boundary_tie:
+                status = 'Empate en el corte proyectado'
             elif remaining == 0:
-                status = 'En plaza al cierre' if inside else 'Fuera de plaza al cierre'
-            elif inside:
-                status = 'En plaza provisional'
-            elif gap == 0:
-                status = 'Igualado con el corte'
-            elif reference is None or reference <= 0:
-                status = 'Sin media positiva de referencia'
-            elif gap <= reference:
-                status = 'Distancia de hasta una media por jornada pendiente'
+                status = ('En plaza actual' if inside else 'Fuera de plaza actual') if postponed_pending else ('En plaza al cierre' if inside else 'Fuera de plaza al cierre')
+            elif projected_inside:
+                status = 'Entraría según su media'
             else:
-                status = 'Remontada superior a la referencia media'
+                status = 'Quedaría fuera según su media'
+            # An explicitly labelled gap index, not a chance of qualifying.
+            margin_index = 100 if guest or inside else max(0, min(100, round(100 * (1-gap/reference)))) if reference and reference > 0 and gap is not None and not incomplete else None
+            cutoff_reference = averages[cutoff] * remaining if cutoff and averages[cutoff] is not None else None
             players.append({'manager': name, 'position': rank['position'], 'total': rank['total'],
                             'guest': guest, 'inside': inside, 'gap': gap, 'status': status,
+                            'individual_average': own_average, 'individual_count': len(individual_samples[name]),
+                            'projected_total': projections[name], 'projected_position': projected_position,
+                            'projected_inside': projected_inside, 'boundary_tie': boundary_tie,
+                            'margin_index': margin_index if guest or not incomplete else None,
                             'reference_percent': gap / reference * 100 if reference and reference > 0 and gap is not None else None,
-                            'needed_if_cutoff_average': (floor(cutoff_total - rank['total'] + reference) + 1)
-                                if not inside and not guest and cutoff_total is not None and reference is not None and remaining else None})
+                            'needed_if_cutoff_average': (floor(cutoff_total - rank['total'] + cutoff_reference) + 1)
+                                if not inside and not guest and cutoff_total is not None and cutoff_reference is not None and remaining else None})
         result.append({'division': division, 'players': players, 'manager_count': len(names),
                        'sample': sample, 'sample_count': len(sample), 'average': average,
                        'pending': pending, 'remaining': remaining, 'incomplete': incomplete,
+                       'postponed_pending': postponed_pending, 'projected_cutoff': projected_cutoff,
                        'cutoff': cutoff, 'cutoff_total': cutoff_total,
                        'cutoff_position': ranks[(division, cutoff)]['position'] if cutoff else None})
     return result
