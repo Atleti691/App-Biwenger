@@ -1,0 +1,103 @@
+<style>
+.clause-export{display:block;margin-top:14px;border:0;border-radius:8px;background:#254ea4;color:#fff;padding:10px 14px;font:inherit;font-weight:bold;cursor:pointer}.clause-export:disabled{opacity:.55;cursor:wait}.clause-export-status{display:block;margin-top:7px;font-size:12px;color:#51617a}.heat-legend{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0;font-size:12px}.heat-key{display:inline-flex;gap:5px;align-items:center}.heat-key i{width:16px;height:16px;border-radius:4px;display:inline-block}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const esc = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const money = value => Number(value || 0).toLocaleString('es-ES', {useGrouping:'always', maximumFractionDigits:0}) + ' €';
+  const card = document.getElementById('clause-network-card');
+  const heat = document.getElementById('clause-heatmap');
+  const select = document.getElementById('clause-manager-select');
+  const detail = document.getElementById('clause-manager-detail');
+  const rankingBox = document.getElementById('clause-ranking');
+  card.querySelector('p.empty').textContent = 'Rojo: menor frecuencia · Verde: frecuencia media · Azul: mayor frecuencia. El número indica cuántas cláusulas hay, no puntos de penalización.';
+  const legend = document.createElement('div');
+  legend.className = 'heat-legend';
+  legend.innerHTML = '<span class="heat-key"><i style="background:#eef2f8"></i>Sin cláusulas</span><span class="heat-key"><i style="background:#f7d4d6"></i>Baja</span><span class="heat-key"><i style="background:#d4efda"></i>Media</span><span class="heat-key"><i style="background:#244e8a"></i>Alta</span>';
+  heat.after(legend);
+  function addExport(anchor, kind) {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'clause-export';
+    button.id = 'export-clauses-' + kind; button.textContent = '⬇ Exportar a PDF'; button.disabled = true;
+    const status = document.createElement('span');
+    status.className = 'clause-export-status'; status.setAttribute('role', 'status');
+    anchor.after(button); button.after(status);
+    button.addEventListener('click', () => download(kind, button, status));
+    return button;
+  }
+  const heatButton = addExport(legend, 'heatmap');
+  const managerButton = addExport(detail, 'manager');
+  let snapshot = null, requestNumber = 0, exporting = false;
+  function syncButtons() {
+    const ready = snapshot && snapshot.division === division.value && snapshot.mode === mode.value && snapshot.jornada === jornada.value && ranking.value === 'clauses';
+    heatButton.disabled = exporting || !ready || !snapshot.links.length;
+    managerButton.disabled = exporting || !ready || !select.value;
+  }
+  async function download(kind, button, status) {
+    if (!snapshot || button.disabled) return;
+    const params = new URLSearchParams({division: snapshot.division, mode: snapshot.mode, jornada: snapshot.jornada, kind});
+    if (kind === 'manager') params.set('manager', select.value);
+    exporting = true; syncButtons();
+    const label = button.textContent;
+    button.textContent = 'Generando PDF…'; status.textContent = 'Preparando la descarga con la selección actual.';
+    try {
+      const response = await fetch('/estadisticas/clausulas/pdf/?' + params.toString());
+      if (!response.ok || !response.headers.get('Content-Type')?.includes('application/pdf')) throw new Error('export');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob), link = document.createElement('a');
+      link.href = url; link.download = kind === 'heatmap' ? 'mapa-clausulas.pdf' : 'detalle-clausulas-manager.pdf';
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      status.textContent = 'PDF descargado. Ya puedes compartirlo.';
+    } catch (error) {
+      status.textContent = 'No se ha podido generar el PDF. Inténtalo de nuevo.';
+    } finally { exporting = false; button.textContent = label; syncButtons(); }
+  }
+  function draw(links) {
+    if (!links.length) {
+      heat.innerHTML = '<p class="empty">Todavía no hay cláusulas con manager de destino.</p>';
+      select.innerHTML = ''; detail.innerHTML = ''; rankingBox.innerHTML = ''; return;
+    }
+    const names = [...new Set(links.flatMap(item => [item.source, item.target]))].sort((a,b) => a.localeCompare(b,'es'));
+    const lookup = new Map(links.map(item => [item.source+'\u0000'+item.target, item]));
+    const maximum = Math.max(...links.map(item => Number(item.count) || 0), 1), previous = select.value;
+    const colors = count => !count ? ['#eef2f8','#56647a'] : count <= Math.ceil(maximum/3) ? ['#f7d4d6','#82242a'] : count <= Math.ceil(maximum*2/3) ? ['#d4efda','#174d2c'] : ['#244e8a','#ffffff'];
+    heat.innerHTML = '<table class="heatmap"><thead><tr><th>Realiza ↓ / Recibe →</th>' + names.map(name => '<th title="'+esc(name)+'">'+esc(name.slice(0,7))+'</th>').join('') + '</tr></thead><tbody>' + names.map(source => '<tr><th class="row-name">'+esc(source)+'</th>' + names.map(target => {
+      const item = lookup.get(source+'\u0000'+target), count = item ? Number(item.count) : 0, [bg,fg] = colors(count);
+      return '<td class="heat-cell" style="background:'+bg+';color:'+fg+'" title="'+esc(source)+' → '+esc(target)+': '+count+' cláusula(s)'+(item?', '+money(item.value):'')+'">'+(count||'·')+'</td>';
+    }).join('') + '</tr>').join('') + '</tbody></table>';
+    select.innerHTML = names.map(name => '<option '+(name === previous ? 'selected' : '')+'>'+esc(name)+'</option>').join('');
+    function renderManager() {
+      const name = select.value;
+      const outgoing = links.filter(item => item.source === name).sort((a,b) => b.count-a.count || b.value-a.value);
+      const incoming = links.filter(item => item.target === name).sort((a,b) => b.count-a.count || b.value-a.value);
+      const list = (items, direction) => items.length ? items.map(item => '<div class="relation"><span>'+direction+' <strong>'+esc(direction === 'A' ? item.target : item.source)+'</strong></span><span>'+item.count+' · <small>'+money(item.value)+'</small></span></div>').join('') : '<p class="empty">Ninguna.</p>';
+      detail.innerHTML = '<h4>Cláusulas realizadas</h4>'+list(outgoing,'A')+'<h4>Cláusulas recibidas</h4>'+list(incoming,'De');
+      syncButtons();
+    }
+    select.onchange = renderManager; renderManager();
+    const ordered = [...links].sort((a,b) => b.count-a.count || b.value-a.value);
+    rankingBox.innerHTML = '<ol class="relation-ranking">'+ordered.slice(0,15).map(item => '<li><strong>'+esc(item.source)+'</strong> → '+esc(item.target)+' · '+item.count+' · '+money(item.value)+'</li>').join('')+'</ol>';
+  }
+  async function update() {
+    const id = ++requestNumber;
+    snapshot = null; syncButtons(); card.hidden = ranking.value !== 'clauses';
+    if (card.hidden) return;
+    const scope = {division:division.value, mode:mode.value, jornada:jornada.value};
+    heat.innerHTML = '<p class="empty">Cargando cláusulas…</p>'; detail.innerHTML = ''; rankingBox.innerHTML = '';
+    try {
+      const params = new URLSearchParams({division:scope.division, mode:scope.mode});
+      const response = await fetch('/api/estadisticas/2026/'+scope.jornada+'/?'+params.toString());
+      if (!response.ok) throw new Error('load');
+      const data = await response.json();
+      if (id !== requestNumber) return;
+      snapshot = {...scope, links:data.clause_network || []}; draw(snapshot.links); syncButtons();
+    } catch (error) {
+      if (id !== requestNumber) return;
+      heat.innerHTML = '<p class="empty">No se han podido cargar las cláusulas. Vuelve a seleccionar el periodo para reintentarlo.</p>';
+    }
+  }
+  [division,mode,jornada,ranking].forEach(element => element.addEventListener('change', update));
+  update();
+});
+</script>

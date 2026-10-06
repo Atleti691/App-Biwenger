@@ -3,6 +3,7 @@ from django.urls import path, reverse_lazy
 from .password_recovery import LeaguePasswordResetConfirmView, LeaguePasswordResetForm
 from .tournament_assets import tournament_logo
 from .cup import copa_rey
+from .clause_pdf import clause_pdf
 from .views import league_playoffs
 from .views import AppLoginView, administration_log, assistant_guide, change_password, communications, contact_form, dashboard, delete_suggestion, home, jornada_api, journey_summary, manage_managers, matches_api, origins, public_home, setup_collaborators, statistics, statistics_api, suggestions, tournaments, vip_matches, vip_penalty_choice, vip_statistics, vip_vote
 
@@ -22,6 +23,7 @@ urlpatterns = [
     path('datos/', dashboard, name='dashboard'),
     path('resumen-jornadas/', journey_summary, name='journey_summary'),
     path('estadisticas/', statistics, name='statistics'),
+    path('estadisticas/clausulas/pdf/', clause_pdf, name='clause_pdf'),
     path('estadisticas/partidos-vip/', vip_statistics, name='vip_statistics'),
     path('login/', AppLoginView.as_view(), name='login'),
     path('recuperar-contrasena/', PasswordResetView.as_view(form_class=LeaguePasswordResetForm, template_name='password_reset_form.html', email_template_name='password_reset_email.txt', subject_template_name='password_reset_subject.txt', success_url=reverse_lazy('password_reset_done')), name='password_reset'),
