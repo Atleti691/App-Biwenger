@@ -280,7 +280,7 @@ def journey_summary(request):
     divisions = ['Primera División', 'Segunda División', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
     journey_numbers = ordered_journeys()
     latest_records = {}
-    records = JornadaRegistro.objects.filter(season=2026, division__in=divisions).order_by('-updated_at')
+    records = JornadaRegistro.objects.filter(season=2026, division__in=divisions).order_by('-updated_at', '-pk')
     for record in records:
         latest_records.setdefault((record.jornada, record.division), record)
     counts = {'empty': 0, 'open': 0, 'pending': 0, 'closed': 0}
