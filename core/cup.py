@@ -1,4 +1,5 @@
 import random
+from math import floor
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -62,6 +63,74 @@ def participants(records, roster):
         ordinary = sorted((name for name in managers if name not in guests), key=lambda name: ranks[(division, name)]['order'])[:6]
         people.extend({'division': division, 'manager': name, 'guest': name in guests} for name in guests + ordinary)
     return people, missing
+
+
+def qualification_outlook(records, roster):
+    """A transparent points-gap scenario, not a probability or guaranteed qualification."""
+    from .views import vip_adjustments_for_journey
+    ranks = standings(records, roster, 8)
+    result = []
+    for division, names in roster.items():
+        if not names:
+            continue
+        ordered = sorted(names, key=lambda name: ranks[(division, name)]['order'])
+        guests = {name for guest_division, name in GUESTS if guest_division == division}
+        eligible = [name for name in ordered if name not in guests]
+        cutoff = eligible[5] if len(eligible) >= 6 else None
+        cutoff_total = ranks[(division, cutoff)]['total'] if cutoff else None
+        sample, pending, incomplete = [], [], []
+        for number in list(range(1, 9)) + [101, 106]:
+            record = records.get((division, number))
+            if not record or not record.cerrada:
+                if number <= 8:
+                    pending.append(number)
+                continue
+            if any(record.datos.get(name, {}).get('app') in (None, '') for name in names):
+                incomplete.append(number)
+                continue
+            vip = vip_adjustments_for_journey(number)
+            total = sum(int(record.datos[name].get('app') or 0)
+                        + int(record.datos[name].get('q') or 0) * 5
+                        + int(record.datos[name].get('p') or 0) * 10
+                        - int(record.datos[name].get('penalty') or 0)
+                        + vip.get((division, name), 0) for name in names)
+            sample.append({'number': number, 'total': total, 'average': total / len(names)})
+        average = sum(row['total'] for row in sample) / (len(names) * len(sample)) if sample else None
+        remaining = len(pending)
+        reference = average * remaining if average is not None else None
+        players = []
+        for name in ordered:
+            rank = ranks[(division, name)]
+            gap = max(0, cutoff_total - rank['total']) if cutoff_total is not None else None
+            inside = name in eligible[:6]
+            guest = name in guests
+            if guest:
+                status = 'Invitado: plaza asegurada'
+            elif incomplete or cutoff is None:
+                status = 'Faltan datos para valorar'
+            elif remaining == 0:
+                status = 'En plaza al cierre' if inside else 'Fuera de plaza al cierre'
+            elif inside:
+                status = 'En plaza provisional'
+            elif gap == 0:
+                status = 'Igualado con el corte'
+            elif reference is None or reference <= 0:
+                status = 'Sin media positiva de referencia'
+            elif gap <= reference:
+                status = 'Distancia de hasta una media por jornada pendiente'
+            else:
+                status = 'Remontada superior a la referencia media'
+            players.append({'manager': name, 'position': rank['position'], 'total': rank['total'],
+                            'guest': guest, 'inside': inside, 'gap': gap, 'status': status,
+                            'reference_percent': gap / reference * 100 if reference and reference > 0 and gap is not None else None,
+                            'needed_if_cutoff_average': (floor(cutoff_total - rank['total'] + reference) + 1)
+                                if not inside and not guest and cutoff_total is not None and reference is not None and remaining else None})
+        result.append({'division': division, 'players': players, 'manager_count': len(names),
+                       'sample': sample, 'sample_count': len(sample), 'average': average,
+                       'pending': pending, 'remaining': remaining, 'incomplete': incomplete,
+                       'cutoff': cutoff, 'cutoff_total': cutoff_total,
+                       'cutoff_position': ranks[(division, cutoff)]['position'] if cutoff else None})
+    return result
 
 
 def build_bracket(people, records, roster):
@@ -162,4 +231,5 @@ def copa_rey(request):
             names = roster.setdefault(person['division'], [])
             if person['manager'] not in names:
                 names.append(person['manager'])
-    return render(request, 'copa_rey.html', {'draw': draw, 'rounds': build_bracket(draw.participantes, records, roster) if draw else [], 'people': people, 'missing': missing, 'ready': ready, 'can_draw': can_draw})
+    return render(request, 'copa_rey.html', {'draw': draw, 'rounds': build_bracket(draw.participantes, records, roster) if draw else [], 'people': people, 'missing': missing, 'ready': ready, 'can_draw': can_draw,
+                                          'qualification_outlook': qualification_outlook(records, roster)})

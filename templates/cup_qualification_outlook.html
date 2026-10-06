@@ -1,0 +1,26 @@
+{% load league_labels %}
+<style>
+.cup-outlook details{margin:12px 0;border:1px solid #dce2ed;border-radius:12px;background:#fff}.cup-outlook summary{padding:16px;cursor:pointer;font-weight:bold;color:#182144}.cup-outlook .content{padding:0 16px 16px}.cup-outlook .metrics{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}.cup-outlook .metric{background:#edf1fb;border-radius:10px;padding:12px;flex:1;min-width:160px}.cup-outlook .metric strong{display:block;font-size:22px;margin-top:5px}.cup-outlook .scroll{overflow:auto}.cup-outlook table{width:100%;min-width:720px;border-collapse:collapse}.cup-outlook th,.cup-outlook td{padding:10px 8px;border-bottom:1px solid #e5e9f0;text-align:left}.cup-outlook th{background:#edf1fb;color:#182144}.cup-outlook .in-place{background:#eaf8ef}.cup-outlook .guest-place{background:#fff4da}.cup-outlook .warning{background:#fff0d9;color:#754800;padding:12px;border-radius:9px}.cup-outlook .muted{font-size:12px;color:#647084;line-height:1.5}
+</style>
+<section class="panel cup-outlook">
+<h2>Camino a la Copa: clasificación y margen de remontada</h2>
+<p>Seis plazas ordinarias por división. Los invitados no consumen esas plazas: el corte puede estar en el 6.º o 7.º puesto general según su posición.</p>
+<p class="muted">La media usa el total neto de la liga (APP, quinielas, porras, penalizaciones y ajustes VIP), porque es la puntuación de la clasificación general. No confundir con las eliminatorias de Copa, que usan solo APP. Solo se incluyen jornadas cerradas hasta J8 y las aplazadas 1AP y 6AP cerradas, con puntos APP registrados para todos los managers actuales. Una casilla APP vacía no se considera cero.</p>
+{% for division in qualification_outlook %}
+<details><summary>{{ division.division }} · {% if division.average != None %}Media: {{ division.average|floatformat:1 }} puntos{% else %}Sin media disponible{% endif %} · {{ division.remaining }} jornadas ordinarias pendientes</summary>
+<div class="content">
+<div class="metrics">
+<div class="metric">Media por manager y jornada<strong>{% if division.average != None %}{{ division.average|floatformat:1 }} puntos{% else %}Sin datos{% endif %}</strong></div>
+<div class="metric">Última plaza ordinaria<strong>{{ division.cutoff|default:'Sin corte disponible' }}</strong>{% if division.cutoff %}{{ division.cutoff_total }} puntos · posición general {{ division.cutoff_position }}{% endif %}</div>
+<div class="metric">Base de la media<strong>{{ division.sample_count }} jornadas</strong>{{ division.manager_count }} managers actuales por jornada</div>
+</div>
+{% if division.incomplete %}<p class="warning">Faltan puntos APP en jornadas cerradas: {% for number in division.incomplete %}{{ number|journey_label }}{% if not forloop.last %}, {% endif %}{% endfor %}. Se excluyen de la media; la clasificación y el análisis deben revisarse antes de considerarlos completos.</p>{% endif %}
+{% if division.pending %}<p>Jornadas ordinarias aún no confirmadas: {% for number in division.pending %}{{ number|journey_label }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+<details><summary>Ver cómo se calcula la media</summary><p>Suma de puntos netos de los managers de cada jornada ÷ {{ division.manager_count }}. La media histórica es el promedio de esas medias de jornada.</p><ul>{% for row in division.sample %}<li>{{ row.number|journey_label }}: {{ row.total }} puntos ÷ {{ division.manager_count }} = {{ row.average|floatformat:1 }} puntos</li>{% empty %}<li>No hay jornadas completas cerradas con las que calcularla.</li>{% endfor %}</ul></details>
+<div class="scroll"><table><thead><tr><th>Pos.</th><th>Manager</th><th>Total general hasta J8</th><th>Distancia al corte</th><th>Referencia</th><th>Escenario: rival suma la media</th></tr></thead><tbody>
+{% for player in division.players %}<tr class="{% if player.guest %}guest-place{% elif player.inside %}in-place{% endif %}"><td>{{ player.position }}</td><td><strong>{{ player.manager }}</strong></td><td>{{ player.total }}</td><td>{% if player.guest %}No aplica{% elif player.inside %}En plaza{% elif player.gap != None %}{{ player.gap }} puntos{% else %}Sin corte{% endif %}</td><td>{{ player.status }}{% if not player.inside and not player.guest and player.reference_percent != None %}<br><span class="muted">Distancia: {{ player.reference_percent|floatformat:0 }} % de la media acumulada de las jornadas pendientes; no es probabilidad.</span>{% endif %}</td><td>{% if player.needed_if_cutoff_average != None %}Necesitaría {{ player.needed_if_cutoff_average|floatformat:0 }} puntos en las jornadas pendientes para superar su total proyectado.{% else %}—{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>
+<p class="muted">Ejemplo: a 20 puntos del corte y con media de 82, la distancia equivale al 24 % de una jornada media. Si el rival suma 82, necesitas al menos 103 para superarlo. No significa un 24 % de probabilidad ni que baste con sumar 20: otros managers también puntúan. No hay un máximo de puntos fijado con el que declarar una remontada imposible. Los empates en el corte necesitan revisión.</p>
+</div></details>
+{% endfor %}
+</section>

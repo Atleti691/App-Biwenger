@@ -1,5 +1,11 @@
 # Mejoras pendientes
 
+## Copa del Rey: nuevo desempate y datos manuales - 6 de octubre de 2026
+
+Regla confirmada para sustituir la posición general: con empate de puntos APP, más goles marcados por los jugadores; si igualan, más asistencias; si igualan, menos tarjetas. Amarillas y rojas cuentan una tarjeta cada una. Sumar las dos jornadas de cada eliminatoria, o solo J36 en la final. Si los tres criterios siguen igualados, no adjudicar ganador hasta definir el siguiente criterio.
+
+Actualizada la guía PDF. Pendiente implementar en el cálculo y cuadro: pedir datos de Biwenger manualmente a administradores únicamente en cruces empatados, con campos por participante para goles/asistencias/amarillas/rojas y validación. No inventar esos datos ni extraerlos de puntos APP. Mantener premios y avance pendientes hasta resolver el empate; registrar quién introdujo los datos y asegurar que corresponden a los dos participantes actuales. El algoritmo actual aún usa clasificación general y debe sustituirse antes de comenzar las eliminatorias.
+
 ## Aplazadas y Donatelo — 4 de octubre de 2026
 
 Preparado en el código: «Jornada 1AP» inmediatamente después de J2 y «Jornada 6AP» inmediatamente después de J5; identificadores internos 101 y 106 sin cambios. Estado a continuación del nombre. Orden y etiquetas compartidos entre Introducir datos, Resumen de jornadas, Estadísticas, registro de administración y etiquetas VIP; correos de cierre con el nombre correcto.
