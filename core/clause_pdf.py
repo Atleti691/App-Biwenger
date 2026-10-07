@@ -1,7 +1,6 @@
 """Read-only clause exports with the same scope as the statistics screen."""
 from io import BytesIO
 import json
-from math import ceil
 from xml.sax.saxutils import escape
 
 from django.contrib.auth.decorators import login_required
@@ -14,11 +13,20 @@ from .journeys import journey_label
 PALETTE = [('#f7d4d6', '#82242a'), ('#d4efda', '#174d2c'), ('#244e8a', '#ffffff')]
 
 
-def heat_colors(count, maximum):
+def heat_colors(count, maximum=None):
     if not count:
         return '#eef2f8', '#56647a'
-    index = 0 if count <= ceil(maximum / 3) else 1 if count <= ceil(maximum * 2 / 3) else 2
+    index = 0 if count <= 2 else 1 if count == 3 else 2
     return PALETTE[index]
+
+
+def clause_totals(links):
+    outgoing, incoming = {}, {}
+    for item in links:
+        count = int(item['count'])
+        outgoing[item['source']] = outgoing.get(item['source'], 0) + count
+        incoming[item['target']] = incoming.get(item['target'], 0) + count
+    return outgoing, incoming, sum(outgoing.values())
 
 
 def build_clause_pdf(links, division, period, manager=None):
@@ -50,35 +58,41 @@ def build_clause_pdf(links, division, period, manager=None):
     if heatmap:
         names = sorted({name for item in links for name in (item['source'], item['target'])}, key=str.casefold)
         ids = {name: index + 1 for index, name in enumerate(names)}
-        maximum = max((int(item['count']) for item in links), default=1)
+        outgoing_totals, incoming_totals, grand_total = clause_totals(links)
         lookup = {(item['source'], item['target']): int(item['count']) for item in links}
         story += [p('Filas: realiza la cláusula. Columnas: la recibe. Cada celda indica el número de cláusulas.', 'Compact')]
-        legend = Table([['Sin cláusulas', 'Frecuencia baja', 'Frecuencia media', 'Frecuencia alta']], colWidths=[doc.width / 4]*4)
+        legend = Table([['Sin cláusulas: 0', 'Frecuencia baja: 1-2', 'Frecuencia media: 3', 'Frecuencia alta: 4 o más']], colWidths=[doc.width / 4]*4)
         legend.setStyle(TableStyle([('BACKGROUND', (0, 0), (0, 0), colors.HexColor('#eef2f8'))]
             + [('BACKGROUND', (i+1, 0), (i+1, 0), colors.HexColor(bg)) for i, (bg, _) in enumerate(PALETTE)]
             + [('TEXTCOLOR', (i+1, 0), (i+1, 0), colors.HexColor(fg)) for i, (_, fg) in enumerate(PALETTE)]
             + [('FONTSIZE', (0, 0), (-1, -1), 9), ('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('BOTTOMPADDING', (0, 0), (-1, -1), 8), ('TOPPADDING', (0, 0), (-1, -1), 8)]))
         story += [Spacer(1, 8), legend, Spacer(1, 12)]
-        chunks = [names[index:index+18] for index in range(0, len(names), 18)]
+        chunks = [names[index:index+12] for index in range(0, len(names), 12)]
         if not names:
             story.append(p('No hay cláusulas con manager de destino en este periodo.'))
         for ri, row_names in enumerate(chunks):
             for ci, column_names in enumerate(chunks):
                 if ri or ci:
                     story += [PageBreak(), p(title, 'Heading1'), p(f'{division} · {period}', 'Heading3')]
-                story.append(p('Columnas numeradas: consulta la clave de managers al final del documento.', 'Compact'))
-                cells = [[p('Realiza / Recibe', 'Compact')] + [str(ids[name]) for name in column_names]]
+                story.append(p('ARRIBA: MANAGERS QUE RECIBEN LAS CLÁUSULAS', 'Heading3'))
+                story.append(p('Los totales incluyen todos los managers de la selección, aunque el mapa ocupe varios bloques.', 'Compact'))
+                cells = [[p('Realiza / Recibe', 'Compact')] + [p(f'{ids[name]}. {name}', 'SmallCell') for name in column_names] + [p('Total realizadas', 'SmallCell')]]
                 commands = [('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e6edf9')),
                             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 9),
                             ('ALIGN', (1, 0), (-1, -1), 'CENTER'), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                             ('GRID', (0, 0), (-1, -1), 0.5, colors.white)]
                 for row_index, source in enumerate(row_names, 1):
-                    cells.append([p(f'{ids[source]}. {source}', 'SmallCell')] + [str(lookup.get((source, target), 0)) or '0' for target in column_names])
+                    cells.append([p(f'{ids[source]}. {source}', 'SmallCell')] + [str(lookup.get((source, target), 0)) for target in column_names] + [str(outgoing_totals.get(source, 0))])
                     for col_index, target in enumerate(column_names, 1):
-                        bg, fg = heat_colors(lookup.get((source, target), 0), maximum)
+                        bg, fg = heat_colors(lookup.get((source, target), 0))
                         commands += [('BACKGROUND', (col_index, row_index), (col_index, row_index), colors.HexColor(bg)),
                                      ('TEXTCOLOR', (col_index, row_index), (col_index, row_index), colors.HexColor(fg))]
-                table = Table(cells, colWidths=[180] + [min(28, (doc.width-180)/len(column_names))]*len(column_names), repeatRows=1)
+                cells.append([p('Total recibidas', 'Compact')] + [str(incoming_totals.get(target, 0)) for target in column_names] + [str(grand_total)])
+                commands += [('BACKGROUND', (-1, 1), (-1, -1), colors.HexColor('#e6edf9')),
+                             ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e6edf9')),
+                             ('FONTNAME', (-1, 1), (-1, -1), 'Helvetica-Bold'),
+                             ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold')]
+                table = Table(cells, colWidths=[155] + [(doc.width-205)/len(column_names)]*len(column_names) + [50], repeatRows=1)
                 table.setStyle(TableStyle(commands))
                 story += [Spacer(1, 6), table]
         if names:

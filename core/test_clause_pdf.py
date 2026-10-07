@@ -5,7 +5,7 @@ from django.template.loader import render_to_string
 from django.test import SimpleTestCase, TestCase
 from pypdf import PdfReader
 
-from .clause_pdf import build_clause_pdf, heat_colors
+from .clause_pdf import build_clause_pdf, heat_colors, clause_totals
 from .models import CambioRegistro, JornadaRegistro, UserAccess
 
 
@@ -13,8 +13,24 @@ class ClausePDFLayoutTests(SimpleTestCase):
     def test_three_distinct_colors_and_empty(self):
         self.assertEqual(heat_colors(0, 9), ('#eef2f8', '#56647a'))
         self.assertEqual(heat_colors(1, 9)[0], '#f7d4d6')
-        self.assertEqual(heat_colors(5, 9)[0], '#d4efda')
+        self.assertEqual(heat_colors(2, 9)[0], '#f7d4d6')
+        self.assertEqual(heat_colors(3, 9)[0], '#d4efda')
+        self.assertEqual(heat_colors(4, 9)[0], '#244e8a')
         self.assertEqual(heat_colors(9, 9)[0], '#244e8a')
+        self.assertEqual(heat_colors(3, 100), heat_colors(3, 3))
+
+    def test_totals_count_clauses_not_amount_or_relationships(self):
+        links = [{'source':'Alex', 'target':'Marina', 'count':2, 'value':5000},
+                 {'source':'Alex', 'target':'Raul', 'count':3, 'value':9000},
+                 {'source':'Marina', 'target':'Alex', 'count':4, 'value':7000}]
+        outgoing, incoming, total = clause_totals(links)
+        self.assertEqual(outgoing, {'Alex':5, 'Marina':4})
+        self.assertEqual(incoming, {'Marina':2, 'Raul':3, 'Alex':4})
+        self.assertEqual(total, 9)
+        self.assertEqual(clause_totals([]), ({}, {}, 0))
+        text = '\n'.join(page.extract_text() for page in PdfReader(BytesIO(build_clause_pdf(links, 'Primera División', 'General'))).pages)
+        for label in ('Total realizadas', 'Total recibidas', 'Frecuencia baja: 1-2', 'Frecuencia media: 3', 'Frecuencia alta: 4 o más', 'MANAGERS QUE RECIBEN'):
+            self.assertIn(label, ' '.join(text.split()))
 
     def test_large_heatmap_and_full_manager_names(self):
         names = [f'Manager número {index:02}' for index in range(20)]
@@ -49,6 +65,10 @@ class ClausePDFLayoutTests(SimpleTestCase):
         for count in (1, 5, 9):
             self.assertIn(heat_colors(count, 9)[0], html)
         self.assertNotIn('rgba(224,107,40', html)
+        self.assertIn('Quién recibe las cláusulas', html)
+        self.assertIn('Total realizadas', html)
+        self.assertIn('Total recibidas', html)
+        self.assertNotIn('name.slice(0,7)', html)
 
 
 class ClausePDFEndpointTests(TestCase):

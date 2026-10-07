@@ -1,6 +1,9 @@
 <style>
 .clause-export{display:block;margin-top:14px;border:0;border-radius:8px;background:#254ea4;color:#fff;padding:10px 14px;font:inherit;font-weight:bold;cursor:pointer}.clause-export:disabled{opacity:.55;cursor:wait}.clause-export-status{display:block;margin-top:7px;font-size:12px;color:#51617a}.heat-legend{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0;font-size:12px}.heat-key{display:inline-flex;gap:5px;align-items:center}.heat-key i{width:16px;height:16px;border-radius:4px;display:inline-block}
 </style>
+<style>
+.heatmap th.heat-recipient{white-space:normal;min-width:72px;max-width:110px;font-size:11px;line-height:1.25;vertical-align:bottom}.heatmap .heat-total{background:#e6edf9;color:#18316b;font-weight:bold;white-space:nowrap}.heatmap .heat-direction{text-align:center;color:#18316b;background:#e6edf9;font-size:12px}
+</style>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const esc = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -10,10 +13,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const select = document.getElementById('clause-manager-select');
   const detail = document.getElementById('clause-manager-detail');
   const rankingBox = document.getElementById('clause-ranking');
-  card.querySelector('p.empty').textContent = 'Rojo: menor frecuencia · Verde: frecuencia media · Azul: mayor frecuencia. El número indica cuántas cláusulas hay, no puntos de penalización.';
+  card.querySelector('p.empty').textContent = 'Arriba: quién recibe las cláusulas. A la izquierda: quién las realiza. El número indica cuántas cláusulas hay, no puntos de penalización.';
   const legend = document.createElement('div');
   legend.className = 'heat-legend';
-  legend.innerHTML = '<span class="heat-key"><i style="background:#eef2f8"></i>Sin cláusulas</span><span class="heat-key"><i style="background:#f7d4d6"></i>Baja</span><span class="heat-key"><i style="background:#d4efda"></i>Media</span><span class="heat-key"><i style="background:#244e8a"></i>Alta</span>';
+  legend.innerHTML = '<span class="heat-key"><i style="background:#eef2f8"></i>Sin cláusulas: 0</span><span class="heat-key"><i style="background:#f7d4d6"></i>Frecuencia baja: 1–2</span><span class="heat-key"><i style="background:#d4efda"></i>Frecuencia media: 3</span><span class="heat-key"><i style="background:#244e8a"></i>Frecuencia alta: 4 o más</span>';
   heat.after(legend);
   function addExport(anchor, kind) {
     const button = document.createElement('button');
@@ -60,12 +63,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const names = [...new Set(links.flatMap(item => [item.source, item.target]))].sort((a,b) => a.localeCompare(b,'es'));
     const lookup = new Map(links.map(item => [item.source+'\u0000'+item.target, item]));
-    const maximum = Math.max(...links.map(item => Number(item.count) || 0), 1), previous = select.value;
-    const colors = count => !count ? ['#eef2f8','#56647a'] : count <= Math.ceil(maximum/3) ? ['#f7d4d6','#82242a'] : count <= Math.ceil(maximum*2/3) ? ['#d4efda','#174d2c'] : ['#244e8a','#ffffff'];
-    heat.innerHTML = '<table class="heatmap"><thead><tr><th>Realiza ↓ / Recibe →</th>' + names.map(name => '<th title="'+esc(name)+'">'+esc(name.slice(0,7))+'</th>').join('') + '</tr></thead><tbody>' + names.map(source => '<tr><th class="row-name">'+esc(source)+'</th>' + names.map(target => {
+    const previous = select.value;
+    const outgoingTotals = new Map(), incomingTotals = new Map();
+    let grandTotal = 0;
+    links.forEach(item => {
+      const count = Number(item.count) || 0;
+      outgoingTotals.set(item.source, (outgoingTotals.get(item.source) || 0) + count);
+      incomingTotals.set(item.target, (incomingTotals.get(item.target) || 0) + count);
+      grandTotal += count;
+    });
+    const colors = count => !count ? ['#eef2f8','#56647a'] : count <= 2 ? ['#f7d4d6','#82242a'] : count === 3 ? ['#d4efda','#174d2c'] : ['#244e8a','#ffffff'];
+    heat.innerHTML = '<table class="heatmap"><thead><tr><th rowspan="2">Quién realiza ↓</th><th class="heat-direction" colspan="'+names.length+'">Quién recibe las cláusulas ↓</th><th class="heat-total" rowspan="2">Total realizadas</th></tr><tr>' + names.map(name => '<th class="heat-recipient" title="'+esc(name)+'">'+esc(name)+'</th>').join('') + '</tr></thead><tbody>' + names.map(source => '<tr><th class="row-name">'+esc(source)+'</th>' + names.map(target => {
       const item = lookup.get(source+'\u0000'+target), count = item ? Number(item.count) : 0, [bg,fg] = colors(count);
       return '<td class="heat-cell" style="background:'+bg+';color:'+fg+'" title="'+esc(source)+' → '+esc(target)+': '+count+' cláusula(s)'+(item?', '+money(item.value):'')+'">'+(count||'·')+'</td>';
-    }).join('') + '</tr>').join('') + '</tbody></table>';
+    }).join('') + '<td class="heat-total">'+(outgoingTotals.get(source)||0)+'</td></tr>').join('') + '</tbody><tfoot><tr><th class="heat-total">Total recibidas</th>'+names.map(target => '<td class="heat-total">'+(incomingTotals.get(target)||0)+'</td>').join('')+'<td class="heat-total" title="Total de cláusulas">'+grandTotal+'</td></tr></tfoot></table>';
     select.innerHTML = names.map(name => '<option '+(name === previous ? 'selected' : '')+'>'+esc(name)+'</option>').join('');
     function renderManager() {
       const name = select.value;
