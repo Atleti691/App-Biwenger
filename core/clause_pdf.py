@@ -33,7 +33,7 @@ def build_clause_pdf(links, division, period, manager=None):
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepInFrame
 
     stream = BytesIO()
     heatmap = manager is None
@@ -57,7 +57,6 @@ def build_clause_pdf(links, division, period, manager=None):
     story = [p(title, 'Title'), p(f'{division} · {period}', 'Heading3'), Spacer(1, 12)]
     if heatmap:
         names = sorted({name for item in links for name in (item['source'], item['target'])}, key=str.casefold)
-        ids = {name: index + 1 for index, name in enumerate(names)}
         outgoing_totals, incoming_totals, grand_total = clause_totals(links)
         lookup = {(item['source'], item['target']): int(item['count']) for item in links}
         story += [p('Filas: realiza la cláusula. Columnas: la recibe. Cada celda indica el número de cláusulas.', 'Compact')]
@@ -67,39 +66,33 @@ def build_clause_pdf(links, division, period, manager=None):
             + [('TEXTCOLOR', (i+1, 0), (i+1, 0), colors.HexColor(fg)) for i, (_, fg) in enumerate(PALETTE)]
             + [('FONTSIZE', (0, 0), (-1, -1), 9), ('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('BOTTOMPADDING', (0, 0), (-1, -1), 8), ('TOPPADDING', (0, 0), (-1, -1), 8)]))
         story += [Spacer(1, 8), legend, Spacer(1, 12)]
-        chunks = [names[index:index+12] for index in range(0, len(names), 12)]
         if not names:
             story.append(p('No hay cláusulas con manager de destino en este periodo.'))
-        for ri, row_names in enumerate(chunks):
-            for ci, column_names in enumerate(chunks):
-                if ri or ci:
-                    story += [PageBreak(), p(title, 'Heading1'), p(f'{division} · {period}', 'Heading3')]
-                story.append(p('ARRIBA: MANAGERS QUE RECIBEN LAS CLÁUSULAS', 'Heading3'))
-                story.append(p('Los totales incluyen todos los managers de la selección, aunque el mapa ocupe varios bloques.', 'Compact'))
-                cells = [[p('Realiza / Recibe', 'Compact')] + [p(f'{ids[name]}. {name}', 'SmallCell') for name in column_names] + [p('Total realizadas', 'SmallCell')]]
-                commands = [('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e6edf9')),
-                            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 9),
-                            ('ALIGN', (1, 0), (-1, -1), 'CENTER'), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                            ('GRID', (0, 0), (-1, -1), 0.5, colors.white)]
-                for row_index, source in enumerate(row_names, 1):
-                    cells.append([p(f'{ids[source]}. {source}', 'SmallCell')] + [str(lookup.get((source, target), 0)) for target in column_names] + [str(outgoing_totals.get(source, 0))])
-                    for col_index, target in enumerate(column_names, 1):
-                        bg, fg = heat_colors(lookup.get((source, target), 0))
-                        commands += [('BACKGROUND', (col_index, row_index), (col_index, row_index), colors.HexColor(bg)),
-                                     ('TEXTCOLOR', (col_index, row_index), (col_index, row_index), colors.HexColor(fg))]
-                cells.append([p('Total recibidas', 'Compact')] + [str(incoming_totals.get(target, 0)) for target in column_names] + [str(grand_total)])
-                commands += [('BACKGROUND', (-1, 1), (-1, -1), colors.HexColor('#e6edf9')),
-                             ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e6edf9')),
-                             ('FONTNAME', (-1, 1), (-1, -1), 'Helvetica-Bold'),
-                             ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold')]
-                table = Table(cells, colWidths=[155] + [(doc.width-205)/len(column_names)]*len(column_names) + [50], repeatRows=1)
-                table.setStyle(TableStyle(commands))
-                story += [Spacer(1, 6), table]
         if names:
-            story += [Spacer(1, 16), p('Clave de managers', 'Heading2')]
-            key = Table([[str(ids[name]), p(name, 'Compact')] for name in names], colWidths=[32, doc.width-32])
-            key.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LINEBELOW', (0, 0), (-1, -1), 0.3, colors.HexColor('#dce3ed'))]))
-            story.append(key)
+            story.append(p('ARRIBA: MANAGERS QUE RECIBEN LAS CLÁUSULAS', 'Compact'))
+            cells = [[p('Realiza / Recibe', 'SmallCell')] + [p(name, 'SmallCell') for name in names] + [p('Total realizadas', 'SmallCell')]]
+            commands = [('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e6edf9')),
+                        ('FONTSIZE', (0, 0), (-1, -1), 8), ('LEADING', (0, 0), (-1, -1), 9),
+                        ('ALIGN', (1, 0), (-1, -1), 'CENTER'), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 2), ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+                        ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                        ('GRID', (0, 0), (-1, -1), 0.4, colors.white)]
+            for row_index, source in enumerate(names, 1):
+                cells.append([p(source, 'SmallCell')] + [str(lookup.get((source, target), 0)) for target in names] + [str(outgoing_totals.get(source, 0))])
+                for col_index, target in enumerate(names, 1):
+                    bg, fg = heat_colors(lookup.get((source, target), 0))
+                    commands += [('BACKGROUND', (col_index, row_index), (col_index, row_index), colors.HexColor(bg)),
+                                 ('TEXTCOLOR', (col_index, row_index), (col_index, row_index), colors.HexColor(fg))]
+            cells.append([p('Total recibidas', 'SmallCell')] + [str(incoming_totals.get(target, 0)) for target in names] + [str(grand_total)])
+            commands += [('BACKGROUND', (-1, 1), (-1, -1), colors.HexColor('#e6edf9')),
+                         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e6edf9')),
+                         ('FONTNAME', (-1, 1), (-1, -1), 'Helvetica-Bold'),
+                         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold')]
+            table = Table(cells, colWidths=[125] + [(doc.width-167)/len(names)]*len(names) + [42])
+            table.setStyle(TableStyle(commands))
+            story += [Spacer(1, 6), table]
+        # Fit the complete matrix in both dimensions, without dropping names or totals.
+        story = [KeepInFrame(doc.width-12, doc.height-12, story, mode='shrink', hAlign='LEFT', vAlign='TOP')]
     else:
         outgoing = sorted((item for item in links if item['source'] == manager), key=lambda item: (-int(item['count']), -int(item['value']), item['target']))
         incoming = sorted((item for item in links if item['target'] == manager), key=lambda item: (-int(item['count']), -int(item['value']), item['source']))

@@ -38,12 +38,24 @@ class ClausePDFLayoutTests(SimpleTestCase):
         links = [{'source': names[index], 'target': names[(index+1)%20], 'count': index%9+1, 'value': 1000000} for index in range(20)]
         reader = PdfReader(BytesIO(build_clause_pdf(links, 'Segunda División', 'Jornada 1AP')))
         text = '\n'.join(page.extract_text() for page in reader.pages)
-        self.assertIn(names[0], text)
+        self.assertIn(names[0], ' '.join(text.split()))
         self.assertIn('Jornada 1AP', text)
-        self.assertIn('Clave de managers', text)
-        self.assertGreater(len(reader.pages), 1)
+        self.assertNotIn('Clave de managers', text)
+        self.assertEqual(len(reader.pages), 1)
         for page in reader.pages:
             self.assertGreater(float(page.mediabox.width), float(page.mediabox.height))
+
+    def test_dense_heatmap_fits_one_page_with_all_names_and_totals(self):
+        names = [f'Manager de prueba con nombre {i}' for i in range(35)]
+        links = [{'source':name, 'target':names[(i+1)%35], 'count':4, 'value':1000} for i, name in enumerate(names)]
+        reader = PdfReader(BytesIO(build_clause_pdf(links, 'Segunda División', 'Clasificación general')))
+        self.assertEqual(len(reader.pages), 1)
+        text = ' '.join(reader.pages[0].extract_text().split())
+        for name in names:
+            self.assertIn(name, text)
+        self.assertIn('Total realizadas', text)
+        self.assertIn('Total recibidas', text)
+        self.assertIn('140', text)
 
     def test_manager_export_excludes_unrelated_relationship(self):
         links = [{'source':'Alex', 'target':'Peña & Amigos', 'count':3, 'value':1234567},

@@ -87,6 +87,7 @@ def qualification_outlook(records, roster):
         eligible = [name for name in ordered if name not in guests]
         cutoff = eligible[5] if len(eligible) >= 6 else None
         cutoff_total = ranks[(division, cutoff)]['total'] if cutoff else None
+        first_outside = eligible[6] if len(eligible) >= 7 else None
         sample, pending, incomplete, postponed_pending = [], [], [], []
         individual_samples = {name: [] for name in names}
         for number in range(1, 9):
@@ -151,8 +152,15 @@ def qualification_outlook(records, roster):
             # An explicitly labelled gap index, not a chance of qualifying.
             margin_index = 100 if guest or inside else max(0, min(100, round(100 * (1-gap/reference)))) if reference and reference > 0 and gap is not None and not incomplete else None
             cutoff_reference = averages[cutoff] * remaining if cutoff and averages[cutoff] is not None else None
+            rival = first_outside if inside else cutoff
+            rival_total = ranks[(division, rival)]['total'] if rival else None
+            cushion = rank['total'] - rival_total if inside and rival_total is not None else None
             players.append({'manager': name, 'position': rank['position'], 'total': rank['total'],
                             'guest': guest, 'inside': inside, 'gap': gap, 'status': status,
+                            'cutoff_rival': rival, 'cushion': cushion,
+                            'current_boundary_tie': bool(cutoff and first_outside and
+                                ranks[(division, first_outside)]['total'] == cutoff_total and rank['total'] == cutoff_total and not guest),
+                            'points_to_overtake': gap + 1 if gap is not None and not inside and not guest else None,
                             'individual_average': own_average, 'individual_count': len(individual_samples[name]),
                             'projected_total': projections[name], 'projected_position': projected_position,
                             'projected_inside': projected_inside, 'boundary_tie': boundary_tie,

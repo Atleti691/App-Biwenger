@@ -2,6 +2,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
+from django.template.loader import render_to_string
 from .cup import qualification_outlook
 from .models import UserAccess
 
@@ -23,6 +24,8 @@ class CupOutlookTests(SimpleTestCase):
         self.assertEqual(division['sample_count'], 7)
         outsider = next(p for p in division['players'] if p['manager'] == 'G')
         self.assertEqual(outsider['gap'], 20)
+        self.assertEqual(outsider['points_to_overtake'], 21)
+        self.assertEqual(outsider['cutoff_rival'], division['cutoff'])
         self.assertAlmostEqual(outsider['individual_average'], 554 / 7)
         self.assertAlmostEqual(outsider['reference_percent'], 20 / (554 / 7) * 100)
         self.assertAlmostEqual(outsider['projected_total'], 554 + 554 / 7, places=5)
@@ -37,6 +40,9 @@ class CupOutlookTests(SimpleTestCase):
         division = qualification_outlook(records, roster)[0]
         self.assertEqual(division['cutoff'], 'F')
         self.assertEqual(division['cutoff_position'], 7)
+        outsider = next(p for p in division['players'] if p['manager'] == 'G')
+        self.assertEqual(outsider['cutoff_rival'], 'F')
+        self.assertEqual(outsider['points_to_overtake'], 2)
         guest = division['players'][0]
         self.assertTrue(guest['guest'])
         self.assertFalse(guest['inside'])
@@ -109,6 +115,34 @@ class CupOutlookTests(SimpleTestCase):
         self.assertEqual(next(p for p in division['players'] if p['manager'] == 'G')['margin_index'], 0)
         self.assertTrue(all(p['margin_index'] is None or 0 <= p['margin_index'] <= 100 for p in division['players']))
 
+    def test_plain_targets_and_visible_division_cards(self, _):
+        self.records[('Test', 7)].datos['G']['app'] = '66'
+        division = qualification_outlook(self.records, self.roster)[0]
+        outsider = next(p for p in division['players'] if p['manager'] == 'G')
+        self.assertEqual(outsider['gap'], 16)
+        self.assertEqual(outsider['points_to_overtake'], 17)
+        inside = next(p for p in division['players'] if p['manager'] == 'F')
+        self.assertEqual(inside['cutoff_rival'], 'G')
+        self.assertEqual(inside['cushion'], 16)
+        html = render_to_string('cup_individual_projection.html', {'qualification_outlook':[division]})
+        self.assertIn('17 puntos más que F', html)
+        self.assertIn('Con 16 puntos más que ese rival, empatarías.', html)
+        self.assertIn('<article class="division-card"><h3>Test</h3>', html)
+        self.assertNotIn('Plaza proyectada</th>', html)
+        self.assertNotIn('role="meter"', html)
+
+    def test_tied_current_cutoff_is_not_guaranteed_even_at_close(self, _):
+        self.records[('Test', 7)].datos['G']['app'] = '82'
+        self.records[('Test', 8)] = SimpleNamespace(cerrada=True, datos={name:{'app':'0'} for name in 'ABCDEFG'})
+        for number in (101, 106):
+            self.records[('Test', number)] = SimpleNamespace(cerrada=True, datos={name:{'app':'0'} for name in 'ABCDEFG'})
+        division = qualification_outlook(self.records, self.roster)[0]
+        tied = next(p for p in division['players'] if p['manager'] == 'G')
+        self.assertTrue(tied['current_boundary_tie'])
+        html = render_to_string('cup_individual_projection.html', {'qualification_outlook':[division]})
+        self.assertIn('Empate en el corte: plaza por resolver', html)
+        self.assertIn('Pendiente de resolver el empate.', html)
+
 
 class CupOutlookPageTests(TestCase):
     def test_viewer_can_read_without_creating_draw(self):
@@ -121,3 +155,6 @@ class CupOutlookPageTests(TestCase):
         self.assertContains(response, 'No es una probabilidad')
         self.assertContains(response, 'Su media')
         self.assertContains(response, 'J1 + 1AP y J6 + 6AP')
+        self.assertContains(response, 'id="cup-tournament-data"><summary>')
+        self.assertContains(response, 'id="cup-draw-preparation"><summary>')
+        self.assertNotContains(response, 'id="cup-draw-preparation" open')

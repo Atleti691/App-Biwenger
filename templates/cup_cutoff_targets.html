@@ -1,0 +1,40 @@
+{% load league_labels %}
+<style>
+.cup-outlook details{margin:12px 0;border:1px solid #dce2ed;border-radius:12px;background:#fff}.cup-outlook summary{padding:14px;cursor:pointer;font-weight:bold;color:#182144}.cup-outlook .content{padding:0 14px 14px}.cup-outlook .metrics{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}.cup-outlook .metric{background:#edf1fb;border-radius:10px;padding:12px;flex:1;min-width:145px;font-size:12px}.cup-outlook .metric strong{display:block;font-size:20px;margin-top:5px}.cup-outlook .scroll{overflow:auto}.cup-outlook table{width:100%;min-width:570px;border-collapse:collapse;font-size:13px}.cup-outlook th,.cup-outlook td{padding:12px 8px;border-bottom:1px solid #e5e9f0;text-align:left}.cup-outlook th{background:#edf1fb;color:#182144}.cup-outlook th:first-child{width:35px}.cup-outlook .name{white-space:nowrap}.cup-outlook .in-place{background:#edf9f2}.cup-outlook .guest-place{background:#fff7e3}.cup-outlook .warning{background:#fff0d9;color:#754800;padding:10px;border-radius:9px}.cup-outlook .muted{font-size:12px;color:#647084;line-height:1.5}.cup-outlook .badge{display:inline-block;border-radius:6px;padding:6px;font-size:12px}.cup-outlook .good{color:#14683d;background:#e5f7ed}.cup-outlook .out{color:#973249;background:#fdebf0}.cup-outlook .tie{color:#845c0d;background:#fff1d6}.cup-outlook .goal{font-size:14px;line-height:1.6}.cup-outlook .goal small{display:block;color:#647084;font-size:12px}.cup-outlook h2{margin:0 0 8px}
+</style>
+<style>
+.cup-outlook .division-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,620px),1fr));gap:16px}.cup-outlook .division-card{min-width:0;border:1px solid #dce2ed;border-radius:12px;padding:16px;background:#fff}.cup-outlook .division-card h3{margin:0;color:#182144;font-size:19px}.cup-outlook .division-card .content{padding:0}.cup-outlook .division-card table{min-width:540px}.cup-outlook .division-card .goal{min-width:240px}
+</style>
+<section class="panel cup-outlook">
+<h2>🏆 Camino a la Copa</h2>
+<p class="muted">¿Qué necesitas para entrar? Compara tus puntos con el rival que marca el corte. Hay 6 plazas por división, sin contar invitados.</p>
+<div class="division-grid">
+{% for division in qualification_outlook %}
+<article class="division-card"><h3>{{ division.division }}</h3>
+<div class="content">
+<div class="metrics"><div class="metric">🎯 Última plaza actual<strong>{{ division.cutoff|default:'Sin corte' }}</strong>{% if division.cutoff %}{{ division.cutoff_total }} pts · puesto {{ division.cutoff_position }}{% endif %}</div><div class="metric">⏳ Jornadas pendientes<strong>{{ division.remaining }}</strong></div></div>
+{% if division.postponed_pending %}<p class="warning">⏳ Clasificación provisional: faltan partes aplazadas de {% for number in division.postponed_pending %}{{ number|journey_label }}{% if not forloop.last %}, {% endif %}{% endfor %}. Sus puntos pueden cambiar las distancias.</p>{% endif %}
+{% if division.incomplete %}<p class="warning">⚠ Faltan puntos APP en {% for number in division.incomplete %}{{ number|journey_label }}{% if not forloop.last %}, {% endif %}{% endfor %}. Las distancias pueden cambiar al completar los datos.</p>{% endif %}
+<div class="scroll"><table><thead><tr><th>#</th><th>Manager</th><th>Puntos</th><th>Tu situación y objetivo</th></tr></thead><tbody>
+{% for player in division.players %}
+<tr class="{% if player.guest %}guest-place{% elif player.inside %}in-place{% endif %}"><td>{{ player.position }}</td><td class="name"><strong>{{ player.manager }}</strong></td><td><strong>{{ player.total }}</strong></td><td class="goal">
+{% if player.guest %}<span class="badge tie">★ Invitado: plaza asegurada</span>
+{% elif not player.individual_count %}<span class="badge tie">Sin datos suficientes</span>
+{% elif player.current_boundary_tie %}<span class="badge tie">⚖ Empate en el corte: plaza por resolver</span><small>Empatado con {{ player.cutoff_rival }}.{% if division.remaining or division.postponed_pending %} Para adelantarle necesitas sumar 1 punto más que ese rival en lo que quede.{% else %} Pendiente de resolver el empate.{% endif %}</small>
+{% elif not division.remaining and not division.postponed_pending and not division.incomplete %}<span class="badge {% if player.inside %}good{% else %}out{% endif %}">{% if player.inside %}En plaza al cierre{% else %}Fuera de plaza al cierre{% endif %}</span><small>Clasificación al finalizar J8.</small>
+{% elif player.inside %}<span class="badge good">✓ En plaza actualmente</span>{% if player.cutoff_rival %}<br>{% if player.cushion %}Llevas <strong>{{ player.cushion }} puntos de ventaja</strong> sobre <strong>{{ player.cutoff_rival }}</strong>, el primero fuera.{% else %}Empatado con <strong>{{ player.cutoff_rival }}</strong>, el primero fuera.<small>La plaza no está decidida por este empate.</small>{% endif %}{% else %}<small>No hay un rival fuera del corte en este listado.</small>{% endif %}
+{% elif player.cutoff_rival %}<span class="badge out">🎯 A {{ player.gap }} puntos del corte</span><br>Necesitas sumar <strong>{{ player.points_to_overtake }} puntos más que {{ player.cutoff_rival }}</strong> en lo que queda para adelantarle.<small>{% if player.gap %}Con {{ player.gap }} puntos más que ese rival, empatarías.{% else %}Ya estáis empatados en puntos.{% endif %} Superarle no garantiza entrar si otros managers también te adelantan.</small>
+{% else %}<span class="badge tie">Sin corte definido</span>{% endif %}
+</td></tr>{% endfor %}
+</tbody></table></div>
+<p class="muted">Son diferencias reales de la clasificación actual, no porcentajes de probabilidad ni puntos que vayamos a asignar. Si queda una jornada, el objetivo se refiere a esa jornada; si quedan varias, a su suma.</p>
+<details><summary>ℹ Ver medias y cómo se calculan los puntos</summary><div class="content muted">
+<p>La clasificación usa total neto (APP, quinielas, porras, penalizaciones y ajustes VIP). Solo se usan registros cerrados hasta J8 y partes AP cerradas. Las eliminatorias de Copa, en cambio, usan solo APP.</p>
+<p><strong>J1 + 1AP y J6 + 6AP cuentan como una jornada cada pareja.</strong> Las medias usan los puntos confirmados disponibles; no inventamos puntos de partidos aplazados. Una casilla APP vacía no cuenta como cero; un cero escrito sí cuenta.</p>
+<p>No es una probabilidad de clasificación. La media individual se conserva aquí como referencia, no como plaza proyectada.</p>
+<div class="scroll"><table><thead><tr><th>Manager</th><th>Su media</th><th>Jornadas con datos</th></tr></thead><tbody>{% for player in division.players %}<tr><td>{{ player.manager }}</td><td>{% if player.individual_average != None %}{{ player.individual_average|floatformat:1 }} pts{% else %}Sin datos{% endif %}</td><td>{{ player.individual_count }}</td></tr>{% endfor %}</tbody></table></div>
+</div></details>
+</div></article>
+{% endfor %}
+</div>
+</section>

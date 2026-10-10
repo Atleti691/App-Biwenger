@@ -1,0 +1,16 @@
+<style>
+.cup-controls{margin-top:18px;background:#fff;border-radius:16px;border:1px solid #dce2ed}.cup-controls>summary{padding:18px 20px;cursor:pointer;font-size:17px;font-weight:bold;color:#182144}.cup-controls>.control-content{padding:0 20px 20px}.cup-controls .control-content>details{margin-top:12px}.cup-controls summary:focus-visible{outline:3px solid #648ac7;outline-offset:2px}
+</style>
+<details class="cup-controls" id="cup-tournament-data"><summary>ℹ Datos del torneo</summary><div class="control-content">
+<p>Dieciseisavos J12–13 · Octavos J14–15 · Cuartos J16–17 · Semifinales J18–19 · Final a partido único J36.</p>
+<p>Se suman exclusivamente los puntos APP. En empate, pasa quien ocupe mejor posición en la general de su división al finalizar la eliminatoria. Si ambos tienen la misma posición, el cruce queda pendiente de resolver.</p>
+<p>Los resultados abiertos se muestran como provisionales. Solo se avanza cuando las jornadas de ambos managers están cerradas y sus puntos están registrados.</p>
+</div></details>
+<details class="cup-controls" id="cup-draw-preparation"><summary>🎲 {% if draw %}Sorteo guardado{% else %}Preparación del sorteo{% endif %}</summary><div class="control-content">
+{% if draw %}<strong>Sorteo guardado el {{ draw.creado|date:'d/m/Y H:i' }}</strong>{% else %}
+<p>Seis plazas por división y dos invitados directos: Raul C y Gabrielix de Asturin.</p>
+{% if ready %}{% if can_draw %}<form method="post">{% csrf_token %}<button class="button" type="submit">🎲 Realizar y guardar sorteo</button></form>{% else %}<p>Clasificados listos. Pendiente de que el administrador realice el sorteo.</p>{% endif %}
+{% else %}<p>El sorteo se habilitará al cerrar las jornadas 1 a 8 de las cinco divisiones y disponer de 32 participantes.</p><details><summary>Ver jornadas pendientes ({{ missing|length }})</summary><ul>{% for item in missing %}<li>{{ item }}</li>{% endfor %}</ul></details>{% endif %}
+<details><summary>Ver participantes provisionales ({{ people|length }})</summary><ul class="roster">{% for person in people %}<li><strong>{{ person.manager }}</strong> · {{ person.division }}{% if person.guest %}<span class="guests"> · Invitado directo</span>{% endif %}</li>{% endfor %}</ul></details>
+{% endif %}
+</div></details>

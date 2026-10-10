@@ -655,7 +655,7 @@ def communications(request):
     legacy_account = app_accounts.get('emcasa') or app_accounts.get('em casa')
     if legacy_account:
         app_accounts.setdefault('donatelo', legacy_account)
-    rows = [{'division': division, 'manager': manager, 'contact': contacts.get((division, manager)), 'app_account': app_accounts.get(manager.casefold())} for division, managers in LEAGUE_MANAGERS.items() for manager in managers]
+    rows = [{'division': division, 'manager': manager, 'contact': contacts.get((division, manager)), 'app_account': app_accounts.get(manager.casefold())} for division, managers in active_league_managers().items() for manager in managers]
     completed = sum(1 for row in rows if row['contact'] and row['contact'].email.strip())
     total = len(rows)
     completed_percentage = round(completed * 100 / total) if total else 0
