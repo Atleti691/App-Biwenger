@@ -1,0 +1,4 @@
+<div class="vip-participation" aria-label="Participación de {{ partido.titulo }}">
+<div class="vip-participation-label"><span>{{ partido.participantes }} de {{ partido.total_managers }} han votado</span><strong>{{ partido.porcentaje_participacion }}%</strong></div>
+<div class="vip-participation-track" role="progressbar" aria-label="Porcentaje de participación" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ partido.porcentaje_participacion }}"><div class="vip-participation-fill" style="width:{{ partido.porcentaje_participacion }}%"></div></div>
+</div>

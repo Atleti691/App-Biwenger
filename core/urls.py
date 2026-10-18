@@ -15,6 +15,7 @@ urlpatterns = [
     path('torneos/playoffs/', league_playoffs, name='league_playoffs'),
     path('torneos/copa-del-rey/', copa_rey, name='copa_rey'),
     path('partidos-vip/', vip_matches, name='vip_matches'),
+    path('gestion/partidos-vip/', vip_matches, {'management': True}, name='vip_management'),
     path('partidos-vip/votar/<int:partido_id>/', vip_vote, name='vip_vote'),
     path('partidos-vip/penalizacion/<str:token>/', vip_penalty_choice, name='vip_penalty_choice'),
     path('procedencia/', origins, name='origins'),

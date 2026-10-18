@@ -13,7 +13,7 @@ from django.contrib.auth.views import LoginView
 from django.core.mail import EmailMessage, get_connection
 from django.db import transaction
 from django.db.models import Count, Q
-from django.http import JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from .forms import FirstPasswordChangeForm, LoginForm
@@ -266,6 +266,7 @@ def home(request):
         'can_switch_view': can_switch_view,
         'selected_menu': selected_menu,
         'is_admin': access.role == 'admin' and not user_view,
+        'can_manage_vip': access.role in {'admin', 'collaborator'} and not access.is_viewer and not user_view,
         'new_suggestions_count': new_suggestions_count,
     })
 
@@ -665,17 +666,19 @@ def communications(request):
 
 
 @login_required
-def vip_matches(request):
+def vip_matches(request, management=False):
     access, _ = UserAccess.objects.get_or_create(user=request.user)
     access = restore_fixed_staff_access(request.user, access)
     protected_divisions = fixed_edit_divisions(request.user.username)
     assigned_divisions = set(access.editable_divisions or [])
-    is_collaborator = access.role == 'collaborator' or bool(protected_divisions or assigned_divisions)
-    if access.role == 'viewer' and not is_collaborator:
-        return redirect('/')
-    is_admin = request.user.username.casefold() == 'atleti69' or access.role == 'admin'
-    can_create_vip = is_admin or is_collaborator
-    can_follow_vip = is_admin or is_collaborator
+    can_manage = access.role in {'admin', 'collaborator'} and not access.is_viewer
+    if management and not can_manage:
+        return HttpResponseForbidden('La gestión de partidos VIP está reservada a los administradores.')
+    if request.method == 'POST' and not management:
+        return HttpResponseForbidden('Esta pantalla es de consulta. Utiliza Gestión de la liga para administrar partidos VIP.')
+    is_admin = management and (request.user.username.casefold() == 'atleti69' or access.role == 'admin')
+    can_create_vip = management and can_manage
+    can_follow_vip = management and can_manage
     message = ''
     emergency_code_info = None
     if request.method == 'POST':
@@ -881,6 +884,7 @@ def vip_matches(request):
                 }
                 message = f'CÓDIGO DE EMERGENCIA · {manager} · {division}: {emergency_code} · Caduca en 15 minutos y solo puede usarse una vez.'
     partidos = list(PartidoVIP.objects.prefetch_related('votos').order_by('-creado'))
+    active_identities = {(division, manager) for division, managers in active_league_managers().items() for manager in managers}
     for partido in partidos:
         manager_points = {}
         registros_jornada = JornadaRegistro.objects.filter(jornada=partido.jornada) if partido.jornada else JornadaRegistro.objects.none()
@@ -905,11 +909,15 @@ def vip_matches(request):
         elif not partido.escudo_visitante:
             partido.escudo_visitante = get_team_logo(partido.equipo_visitante)
             logo_fields.append('escudo_visitante')
-        if logo_fields and (partido.escudo_local or partido.escudo_visitante):
+        if management and logo_fields and (partido.escudo_local or partido.escudo_visitante):
             partido.save(update_fields=logo_fields)
         partido.vote_url = request.build_absolute_uri(f'/partidos-vip/votar/{partido.id}/')
         partido.votacion_finalizada = partido.cerrado or timezone.now() > partido.fecha_cierre
         partido.participantes = partido.votos.count()
+        # Keep any past voter in the denominator even after a manager is retired.
+        voter_identities = {(vote.division, vote.manager) for vote in partido.votos.all()}
+        partido.total_managers = len(active_identities | voter_identities)
+        partido.porcentaje_participacion = round(partido.participantes * 100 / partido.total_managers) if partido.total_managers else 0
         score_match = re.search(r'\d+\s*[–-]\s*\d+', partido.resultado or '')
         partido.resultado_corto = score_match.group(0) if score_match else partido.resultado
         if can_follow_vip:
@@ -968,7 +976,9 @@ def vip_matches(request):
             winner.penalty_distribution = list(penalties.items())
             winner.manual_targets = [name for name in LEAGUE_MANAGERS.get(winner.division, []) if name != winner.manager]
             winner.can_manual_penalty = is_admin or winner.division in assigned_divisions or winner.division in protected_divisions
-    return render(request, 'vip_matches.html', {'partidos': partidos, 'is_admin': is_admin, 'can_create_vip': can_create_vip, 'can_follow_vip': can_follow_vip, 'message': message, 'divisions': LEAGUE_MANAGERS.keys(), 'emergency_code_info': emergency_code_info})
+    for panel in vip_statistics_panels(request, partidos):
+        panel['match'].results_panel = panel
+    return render(request, 'vip_matches.html', {'partidos': partidos, 'is_admin': is_admin, 'can_create_vip': can_create_vip, 'can_follow_vip': can_follow_vip, 'management': management, 'message': message, 'divisions': LEAGUE_MANAGERS.keys(), 'emergency_code_info': emergency_code_info})
 
 
 def vip_penalty_choice(request, token):
@@ -1192,13 +1202,15 @@ def league_playoffs(request):
                                                   'playoffs': playoff_data(2026, division)})
 
 
-@login_required
-def vip_statistics(request):
+def vip_statistics_panels(request, partidos, notify_winners=False):
     panels = []
-    for partido in PartidoVIP.objects.prefetch_related('votos').order_by('-creado'):
+    roster = active_league_managers()
+    for partido in partidos:
         divisions = []
+        all_votes = list(partido.votos.all())
         for division, managers in LEAGUE_MANAGERS.items():
-            votes = list(partido.votos.filter(division=division))
+            votes = [vote for vote in all_votes if vote.division == division]
+            division_total = len(set(roster.get(division, [])) | {vote.manager for vote in votes})
             record = JornadaRegistro.objects.filter(jornada=partido.jornada, division=division).order_by('-updated_at').first() if partido.jornada else None
             media_local = media_visitante = media_ninguno = None
             positioning_winner = ''
@@ -1220,7 +1232,8 @@ def vip_statistics(request):
                     winner_position = ''
                 if winner_position:
                     positioning_winner = partido.equipo_local if winner_position == 'local' else partido.equipo_visitante if winner_position == 'visitante' else 'Ninguno de los dos'
-                    send_vip_position_winner_emails(request, partido, division, winner_position, votes)
+                    if notify_winners:
+                        send_vip_position_winner_emails(request, partido, division, winner_position, votes)
             total = len(votes)
             positions = {key: sum(v.posicionamiento == key for v in votes) for key in ('local', 'visitante', 'ninguno')}
             goals = {key: sum(v.pronostico_goles == key for v in votes) for key in ('0', '1', '2', '3+')}
@@ -1235,8 +1248,8 @@ def vip_statistics(request):
             divisions.append({
                 'name': division,
                 'votes': total,
-                'total': len(managers),
-                'percentage': round(total * 100 / len(managers)) if managers else 0,
+                'total': division_total,
+                'percentage': round(total * 100 / division_total) if division_total else 0,
                 'calculated': bool(partido.cerrado and record and record.cerrada),
                 'media_local': media_local,
                 'media_visitante': media_visitante,
@@ -1253,7 +1266,13 @@ def vip_statistics(request):
                 'penalty_actions': penalty_actions,
             })
         panels.append({'match': partido, 'divisions': divisions})
-    return render(request, 'vip_statistics.html', {'panels': panels})
+    return panels
+
+
+@login_required
+def vip_statistics(request):
+    partidos = PartidoVIP.objects.prefetch_related('votos').order_by('-creado')
+    return render(request, 'vip_statistics.html', {'panels': vip_statistics_panels(request, partidos, notify_winners=True)})
 
 
 @login_required
