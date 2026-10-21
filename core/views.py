@@ -7,6 +7,8 @@ import re
 from django.contrib.auth import get_user_model, login, logout
 from django.contrib.auth.hashers import check_password, make_password
 from django.core import signing
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
@@ -700,6 +702,23 @@ def vip_matches(request, management=False):
                 message = 'Partido VIP creado.'
             except (ValueError, KeyError):
                 message = 'Revisa los datos y la fecha del partido.'
+        elif action == 'edit_badges' and can_create_vip:
+            partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'))
+            badges = {field: request.POST.get(field, '').strip()
+                      for field in ('escudo_local', 'escudo_visitante')}
+            try:
+                for value in badges.values():
+                    URLValidator(schemes=['http', 'https'])(value)
+                    if len(value) > PartidoVIP._meta.get_field('escudo_local').max_length:
+                        raise ValidationError('El enlace es demasiado largo.')
+            except ValidationError:
+                message = 'Revisa los enlaces de los escudos: deben ser direcciones http o https válidas.'
+            else:
+                with transaction.atomic():
+                    PartidoVIP.objects.filter(pk=partido.pk).update(**badges)
+                    CambioRegistro.objects.create(usuario=request.user, jornada=partido.jornada or 0,
+                        accion='editar escudos VIP', detalle={'partido': partido.pk, **badges})
+                message = 'Escudos del partido VIP actualizados. Los votos y resultados no han cambiado.'
         elif action == 'manual_vote' and is_admin:
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'))
             division = request.POST.get('division', '')
@@ -897,17 +916,11 @@ def vip_matches(request, management=False):
         logo_fields = []
         preferred_local = get_preferred_team_logo(partido.equipo_local)
         preferred_visitante = get_preferred_team_logo(partido.equipo_visitante)
-        if preferred_local and partido.escudo_local != preferred_local:
-            partido.escudo_local = preferred_local
+        if not partido.escudo_local:
+            partido.escudo_local = preferred_local or get_team_logo(partido.equipo_local)
             logo_fields.append('escudo_local')
-        elif not partido.escudo_local:
-            partido.escudo_local = get_team_logo(partido.equipo_local)
-            logo_fields.append('escudo_local')
-        if preferred_visitante and partido.escudo_visitante != preferred_visitante:
-            partido.escudo_visitante = preferred_visitante
-            logo_fields.append('escudo_visitante')
-        elif not partido.escudo_visitante:
-            partido.escudo_visitante = get_team_logo(partido.equipo_visitante)
+        if not partido.escudo_visitante:
+            partido.escudo_visitante = preferred_visitante or get_team_logo(partido.equipo_visitante)
             logo_fields.append('escudo_visitante')
         if management and logo_fields and (partido.escudo_local or partido.escudo_visitante):
             partido.save(update_fields=logo_fields)
@@ -976,8 +989,9 @@ def vip_matches(request, management=False):
             winner.penalty_distribution = list(penalties.items())
             winner.manual_targets = [name for name in LEAGUE_MANAGERS.get(winner.division, []) if name != winner.manager]
             winner.can_manual_penalty = is_admin or winner.division in assigned_divisions or winner.division in protected_divisions
-    for panel in vip_statistics_panels(request, partidos):
-        panel['match'].results_panel = panel
+    if not management:
+        for panel in vip_statistics_panels(request, partidos):
+            panel['match'].results_panel = panel
     return render(request, 'vip_matches.html', {'partidos': partidos, 'is_admin': is_admin, 'can_create_vip': can_create_vip, 'can_follow_vip': can_follow_vip, 'management': management, 'message': message, 'divisions': LEAGUE_MANAGERS.keys(), 'emergency_code_info': emergency_code_info})
 
 
@@ -1067,17 +1081,11 @@ def vip_vote(request, partido_id):
     logo_fields = []
     preferred_local = get_preferred_team_logo(partido.equipo_local)
     preferred_visitante = get_preferred_team_logo(partido.equipo_visitante)
-    if preferred_local and partido.escudo_local != preferred_local:
-        partido.escudo_local = preferred_local
+    if not partido.escudo_local:
+        partido.escudo_local = preferred_local or get_team_logo(partido.equipo_local)
         logo_fields.append('escudo_local')
-    elif not partido.escudo_local:
-        partido.escudo_local = get_team_logo(partido.equipo_local)
-        logo_fields.append('escudo_local')
-    if preferred_visitante and partido.escudo_visitante != preferred_visitante:
-        partido.escudo_visitante = preferred_visitante
-        logo_fields.append('escudo_visitante')
-    elif not partido.escudo_visitante:
-        partido.escudo_visitante = get_team_logo(partido.equipo_visitante)
+    if not partido.escudo_visitante:
+        partido.escudo_visitante = preferred_visitante or get_team_logo(partido.equipo_visitante)
         logo_fields.append('escudo_visitante')
     if logo_fields and (partido.escudo_local or partido.escudo_visitante):
         partido.save(update_fields=logo_fields)

@@ -178,4 +178,43 @@ class VIPNavigationTests(TestCase):
         self.assertContains(response, 'value="close"')
         self.assertContains(response, 'value="emergency_code"')
         self.assertContains(response, 'Introducir votos realizados fuera de la aplicación')
-        self.assertContains(response, 'Ver quién ejecutó cada penalización')
+        self.assertNotContains(response, 'Resultados del partido VIP')
+        self.assertNotContains(response, 'id="vip-results-')
+        self.assertContains(response, '✏️ Editar partido VIP')
+
+    def test_admins_can_correct_badges_without_changing_votes_or_results(self):
+        self.match.cerrado = True
+        self.match.goles_reales = 3
+        self.match.save()
+        vote = VotoPartidoVIP.objects.create(partido=self.match, division='Primera División',
+            manager='AlexJulio', posicionamiento='local', pronostico_goles='3+')
+        original_vote = VotoPartidoVIP.objects.values().get(pk=vote.pk)
+        original_match = PartidoVIP.objects.values().get(pk=self.match.pk)
+        for role in ('admin', 'collaborator'):
+            self.login(role)
+            with patch('core.views.get_preferred_team_logo', return_value='https://example.com/automatic.png'):
+                response = self.client.post(reverse('vip_management'), {
+                    'action': 'edit_badges', 'partido_id': self.match.pk,
+                    'escudo_local': 'https://example.com/correct-local.png',
+                    'escudo_visitante': 'https://example.com/correct-visitor.png'})
+                self.assertContains(response, 'Escudos del partido VIP actualizados.')
+                self.client.get(reverse('vip_matches'))
+                self.client.get(f'/partidos-vip/votar/{self.match.pk}/')
+            current = PartidoVIP.objects.values().get(pk=self.match.pk)
+            self.assertEqual(current.pop('escudo_local'), 'https://example.com/correct-local.png')
+            self.assertEqual(current.pop('escudo_visitante'), 'https://example.com/correct-visitor.png')
+            self.assertEqual(current, {key: value for key, value in original_match.items()
+                                      if key not in ('escudo_local', 'escudo_visitante')})
+            self.assertEqual(VotoPartidoVIP.objects.values().get(pk=vote.pk), original_vote)
+
+    def test_invalid_badges_are_not_saved_and_viewers_cannot_edit(self):
+        data = {'action': 'edit_badges', 'partido_id': self.match.pk,
+                'escudo_local': 'javascript:alert(1)', 'escudo_visitante': 'https://example.com/new.png'}
+        self.login('admin')
+        self.assertContains(self.client.post(reverse('vip_management'), data), 'Revisa los enlaces')
+        self.match.refresh_from_db()
+        self.assertEqual(self.match.escudo_local, 'https://example.com/local.png')
+        self.assertEqual(self.match.escudo_visitante, 'https://example.com/visitor.png')
+        self.assertEqual(self.client.post(reverse('vip_matches'), data).status_code, 403)
+        self.login('viewer')
+        self.assertEqual(self.client.post(reverse('vip_management'), data).status_code, 403)
