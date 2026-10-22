@@ -1,5 +1,9 @@
 # Mejoras pendientes
 
+## Aclarar el botón de votación VIP — 21 de octubre de 2026
+
+Pendiente de aplicar, por petición de Rafael. En Gestión de partidos VIP, renombrar «Abrir votación» a «Ver formulario de votación». Solo abre el formulario del enlace compartido: no activa ni reabre la votación, cuyo plazo depende de la fecha y hora de cierre. Mantener «Votar» en Consulta de partidos VIP para que los managers puedan participar desde la aplicación. No modificar plazos, permisos ni votos.
+
 ## Copa del Rey: nuevo desempate y datos manuales - 6 de octubre de 2026
 
 Regla confirmada para sustituir la posición general: con empate de puntos APP, más goles marcados por los jugadores; si igualan, más asistencias; si igualan, menos tarjetas. Amarillas y rojas cuentan una tarjeta cada una. Sumar las dos jornadas de cada eliminatoria, o solo J36 en la final. Si los tres criterios siguen igualados, no adjudicar ganador hasta definir el siguiente criterio.

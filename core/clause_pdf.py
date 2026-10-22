@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_GET
 
-from .journeys import journey_label
+from .journeys import journey_label, ordered_journeys
 
 
 PALETTE = [('#f7d4d6', '#82242a'), ('#d4efda', '#174d2c'), ('#244e8a', '#ffffff')]
@@ -126,7 +126,7 @@ def clause_pdf(request):
         number = int(request.GET.get('jornada', '1'))
     except ValueError:
         return JsonResponse({'error': 'Jornada no válida.'}, status=400)
-    if not division or mode not in ('general', 'round') or kind not in ('heatmap', 'manager') or not 1 <= number <= 106:
+    if not division or mode not in ('general', 'round') or kind not in ('heatmap', 'manager') or number not in ordered_journeys():
         return JsonResponse({'error': 'Selección no válida.'}, status=400)
     response = statistics_api(request, 2026, number)
     if response.status_code != 200:

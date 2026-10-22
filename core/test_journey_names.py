@@ -1,5 +1,6 @@
 import importlib
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.apps import apps
 from django.contrib.auth import get_user_model
@@ -17,7 +18,10 @@ class JourneyLabelTests(SimpleTestCase):
     def test_ap_order_and_names(self):
         numbers = ordered_journeys()
         self.assertEqual(numbers[:8], [1, 2, 101, 3, 4, 5, 106, 6])
-        self.assertEqual(len(numbers), 40)
+        self.assertEqual(len(numbers), 41)
+        self.assertEqual(len(set(numbers)), 41)
+        self.assertEqual(numbers[numbers.index(9):numbers.index(9)+3], [9, 206, 10])
+        self.assertEqual(journey_label(206), 'Jornada 6AP2')
         self.assertEqual(journey_label(101), 'Jornada 1AP')
         self.assertEqual(journey_label(106), 'Jornada 6AP')
         self.assertEqual(journey_label(2), 'Jornada 2')
@@ -26,8 +30,18 @@ class JourneyLabelTests(SimpleTestCase):
         html = render_to_string('statistics.html', {'divisions': [], 'jornadas': ordered_journeys()})
         self.assertIn('<option value="101">Jornada 1AP</option>', html)
         self.assertIn('<option value="106">Jornada 6AP</option>', html)
+        self.assertIn('<option value="206">Jornada 6AP2</option>', html)
+        self.assertLess(html.index('value="9"'), html.index('value="206"'))
+        self.assertLess(html.index('value="206"'), html.index('value="10"'))
         self.assertLess(html.index('value="2"'), html.index('value="101"'))
         self.assertLess(html.index('value="101"'), html.index('value="3"'))
+
+    def test_second_postponement_only_counts_from_journey_nine(self):
+        from .cup import standings
+        records = {('Test', 206): SimpleNamespace(cerrada=True, datos={'Manager': {'app': '20'}})}
+        with patch('core.views.vip_adjustments_for_journey', return_value={}):
+            self.assertEqual(standings(records, {'Test': ['Manager']}, 8)[('Test', 'Manager')]['total'], 0)
+            self.assertEqual(standings(records, {'Test': ['Manager']}, 9)[('Test', 'Manager')]['total'], 20)
 
 
 class DonateloRenameTests(TestCase):

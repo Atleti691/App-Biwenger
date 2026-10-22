@@ -25,7 +25,7 @@ def standings(records, roster, through, awards=None):
     for division, managers in roster.items():
         totals = {manager: {'total': 0, 'app': 0} for manager in managers}
         for (record_division, journey), record in records.items():
-            if record_division != division or not record.cerrada or not (journey <= through or journey in [101, 106] and journey - 100 <= through):
+            if record_division != division or not record.cerrada or not (journey <= through or journey in [101, 106] and journey - 100 <= through or journey == 206 and through >= 9):
                 continue
             if journey not in vip_cache:
                 vip_cache[journey] = vip_adjustments_for_journey(journey)
