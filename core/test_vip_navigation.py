@@ -182,6 +182,17 @@ class VIPNavigationTests(TestCase):
         self.assertNotContains(response, 'id="vip-results-')
         self.assertContains(response, '✏️ Editar partido VIP')
 
+    def test_voting_link_label_distinguishes_management_and_consultation(self):
+        self.login('admin')
+        response = self.client.get(reverse('vip_management'))
+        self.assertContains(response, 'Ver formulario de votación</a>')
+        self.assertNotContains(response, 'Abrir votación')
+        self.login('viewer')
+        response = self.client.get(reverse('vip_matches'))
+        self.assertContains(response, '>Votar</a>')
+        self.assertNotContains(response, 'Ver formulario de votación')
+        self.assertNotContains(response, 'Abrir votación')
+
     def test_admins_can_correct_badges_without_changing_votes_or_results(self):
         self.match.cerrado = True
         self.match.goles_reales = 3

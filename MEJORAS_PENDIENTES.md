@@ -2,7 +2,7 @@
 
 ## Aclarar el botón de votación VIP — 21 de octubre de 2026
 
-Pendiente de aplicar, por petición de Rafael. En Gestión de partidos VIP, renombrar «Abrir votación» a «Ver formulario de votación». Solo abre el formulario del enlace compartido: no activa ni reabre la votación, cuyo plazo depende de la fecha y hora de cierre. Mantener «Votar» en Consulta de partidos VIP para que los managers puedan participar desde la aplicación. No modificar plazos, permisos ni votos.
+Aplicado en el código el 22 de octubre de 2026, por petición de Rafael. En Gestión de partidos VIP, «Abrir votación» pasa a «Ver formulario de votación». Solo abre el formulario del enlace compartido: no activa ni reabre la votación, cuyo plazo depende de la fecha y hora de cierre. Se mantiene «Votar» en Consulta de partidos VIP para que los managers puedan participar desde la aplicación. No se modifican plazos, permisos ni votos. Pendiente de publicar.
 
 ## Copa del Rey: nuevo desempate y datos manuales - 6 de octubre de 2026
 
