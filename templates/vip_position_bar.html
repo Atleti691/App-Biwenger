@@ -1,0 +1,13 @@
+{% if panel.show_position_managers %}
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: {{ label }} · {{ division.name }}">
+<span>{{ label }} ⓘ</span><div><i style="width:{% widthratio count division.total 100 %}%"></i></div><b>{{ count }}</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>{{ label }} · {{ division.name }}</strong>
+<ul>{% for manager in managers %}<li>{{ manager }}</li>{% empty %}<li>Nadie eligió esta opción.</li>{% endfor %}</ul>
+</div>
+</details>
+{% else %}
+<div class="vip-result-bar"><span>{{ label }}</span><div><i style="width:{% widthratio count division.total 100 %}%"></i></div><b>{{ count }}</b></div>
+{% endif %}

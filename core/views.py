@@ -1216,6 +1216,7 @@ def vip_statistics_panels(request, partidos, notify_winners=False):
     for partido in partidos:
         divisions = []
         all_votes = list(partido.votos.all())
+        show_position_managers = partido.cerrado or timezone.now() >= partido.fecha_cierre
         for division, managers in LEAGUE_MANAGERS.items():
             votes = [vote for vote in all_votes if vote.division == division]
             division_total = len(set(roster.get(division, [])) | {vote.manager for vote in votes})
@@ -1264,6 +1265,11 @@ def vip_statistics_panels(request, partidos, notify_winners=False):
                 'media_ninguno': media_ninguno,
                 'positioning_winner': positioning_winner,
                 'positions': positions,
+                'position_managers': {
+                    key: sorted((vote.manager for vote in votes if vote.posicionamiento == key), key=str.casefold)
+                    if show_position_managers else []
+                    for key in ('local', 'visitante', 'ninguno')
+                },
                 'goals': [
                     {'label': '0 goles', 'count': goals['0']},
                     {'label': '1 gol', 'count': goals['1']},
@@ -1273,7 +1279,7 @@ def vip_statistics_panels(request, partidos, notify_winners=False):
                 'targets': sorted(targets.items(), key=lambda item: (-item[1], item[0])),
                 'penalty_actions': penalty_actions,
             })
-        panels.append({'match': partido, 'divisions': divisions})
+        panels.append({'match': partido, 'divisions': divisions, 'show_position_managers': show_position_managers})
     return panels
 
 

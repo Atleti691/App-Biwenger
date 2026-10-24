@@ -193,6 +193,46 @@ class VIPNavigationTests(TestCase):
         self.assertNotContains(response, 'Ver formulario de votación')
         self.assertNotContains(response, 'Abrir votación')
 
+    def test_closed_position_balloons_list_managers_by_division_and_choice(self):
+        self.match.fecha_cierre = timezone.now() - timedelta(minutes=1)
+        self.match.save()
+        for division, name, choice in [('Primera División', 'Local visible', 'local'),
+                                        ('Primera División', 'Visitante visible', 'visitante'),
+                                        ('Primera División', '<Ninguno seguro>', 'ninguno'),
+                                        ('Segunda División', 'Otra división', 'local')]:
+            VotoPartidoVIP.objects.create(partido=self.match, division=division, manager=name,
+                posicionamiento=choice, pronostico_goles='1')
+        self.login('viewer')
+        response = self.client.get(reverse('vip_matches'))
+        self.assertContains(response, 'class="vip-position-voters"')
+        self.assertContains(response, 'Local visible')
+        self.assertContains(response, 'Visitante visible')
+        self.assertContains(response, '&lt;Ninguno seguro&gt;')
+        panel = response.context['partidos'][0].results_panel
+        self.assertTrue(panel['show_position_managers'])
+        first = next(row for row in panel['divisions'] if row['name'] == 'Primera División')
+        self.assertEqual(first['position_managers'], {'local': ['Local visible'],
+            'visitante': ['Visitante visible'], 'ninguno': ['<Ninguno seguro>']})
+        second = next(row for row in panel['divisions'] if row['name'] == 'Segunda División')
+        self.assertEqual(second['position_managers']['local'], ['Otra división'])
+
+    def test_open_voting_does_not_expose_manager_lists_in_results(self):
+        VotoPartidoVIP.objects.create(partido=self.match, division='Primera División',
+            manager='Nombre secreto de prueba', posicionamiento='local', pronostico_goles='1')
+        self.login('viewer')
+        response = self.client.get(reverse('vip_matches'))
+        self.assertNotContains(response, 'class="vip-position-voters"')
+        self.assertNotContains(response, 'Nombre secreto de prueba')
+        panel = response.context['partidos'][0].results_panel
+        self.assertFalse(panel['show_position_managers'])
+        self.assertTrue(all(not names for row in panel['divisions']
+                            for names in row['position_managers'].values()))
+        self.match.cerrado = True
+        self.match.save()
+        response = self.client.get(reverse('vip_matches'))
+        self.assertContains(response, 'Nombre secreto de prueba')
+        self.assertContains(response, 'Nadie eligió esta opción.')
+
     def test_admins_can_correct_badges_without_changing_votes_or_results(self):
         self.match.cerrado = True
         self.match.goles_reales = 3
