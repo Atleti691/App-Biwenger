@@ -13,7 +13,8 @@ from django.core.validators import URLValidator
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
-from django.core.mail import EmailMessage, get_connection
+from django.core.mail import EmailMessage, EmailMultiAlternatives, get_connection
+from django.template.loader import render_to_string
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.http import HttpResponseForbidden, JsonResponse
@@ -59,8 +60,13 @@ def send_vip_penalty_links(request, partido, votes, kind='premio'):
         url = request.build_absolute_uri(f'/partidos-vip/penalizacion/{token}/')
         deadline_text = timezone.localtime(partido.fecha_limite_penalizaciones).strftime('%d/%m/%Y a las %H:%M') if partido.fecha_limite_penalizaciones else 'la fecha indicada por la administración'
         prefix = 'Últimas 24 horas para repartir tus puntos' if kind == 'ultimo_dia' else 'Recordatorio para repartir tus puntos' if kind == 'recordatorio' else 'Premio por acertar los goles'
-        message = EmailMessage(subject=f'{prefix} — {partido.titulo}', body=(f'Hola {vote.manager}.\n\nHas acertado el número de goles de {partido.titulo}. Debes repartir exactamente 50 puntos de penalización entre uno o varios managers de tu división:\n{url}\n\nPlazo máximo: {deadline_text}. Solo podrás realizar esta elección una vez.'), to=[email], connection=connection,
+        app_url = request.build_absolute_uri('/login/')
+        message = EmailMultiAlternatives(subject=f'{prefix} — {partido.titulo}', body=(f'Hola {vote.manager}.\n\n¡Enhorabuena! Has acertado el número de goles de {partido.titulo}. Debes repartir exactamente 50 puntos de penalización entre uno o varios managers de tu división.\n\nPulsa aquí para votar y repartir tus puntos:\n{url}\n\nPlazo máximo: {deadline_text}. Solo podrás realizar esta elección una vez.\n\nTu liga, a un clic\nConsulta las clasificaciones, los resultados, los goles, tus cláusulas y los torneos. ¡Entra y sigue la liga!\nEntrar en la aplicación: {app_url}\n\nEste enlace de reparto es personal. No lo compartas.'), to=[email], connection=connection,
             headers={'X-Mailin-custom': f'vip_attempt:{attempt.referencia}'})
+        message.attach_alternative(render_to_string('vip_penalty_email.html', {
+            'manager': vote.manager, 'match_title': partido.titulo, 'division': vote.division,
+            'vote_url': url, 'app_url': app_url, 'deadline': deadline_text, 'kind': kind,
+        }), 'text/html')
         try:
             accepted = connection.send_messages([message]) or 0
             if accepted:

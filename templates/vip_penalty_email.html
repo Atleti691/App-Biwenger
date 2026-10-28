@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tu premio del partido VIP</title></head>
+<body style="margin:0;padding:20px 10px;background:#f3f5fa;font-family:Arial,sans-serif;color:#172033">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border-radius:16px">
+<tr><td style="padding:26px;background:#172e5c;color:#ffffff;border-radius:16px 16px 0 0"><p style="margin:0 0 8px;font-size:13px;letter-spacing:1px">LIGA AMIGOS XI · PARTIDO VIP</p><h1 style="margin:0;font-size:25px">¡Has acertado los goles!</h1></td></tr>
+<tr><td style="padding:26px;font-size:16px;line-height:1.6">
+<p style="margin-top:0">Hola, <strong>{{ manager }}</strong>:</p>
+<p>¡Enhorabuena! Has acertado el número de goles de <strong>{{ match_title }}</strong>.</p>
+{% if kind == 'ultimo_dia' %}<p style="color:#9a3412;font-weight:bold">Estás en las últimas 24 horas para repartir tus puntos. ¡Que no se te pase!</p>{% elif kind == 'recordatorio' %}<p>Todavía tienes pendiente elegir a quién quitar los puntos de tu premio.</p>{% endif %}
+<p>Puedes repartir <strong>50 puntos de penalización</strong> entre uno o varios managers de <strong>{{ division }}</strong>. Tu reparto debe sumar exactamente 50 puntos.</p>
+<table role="presentation" cellspacing="0" cellpadding="0" style="margin:22px 0"><tr><td bgcolor="#d85d13" style="border-radius:8px"><a href="{{ vote_url }}" style="display:inline-block;padding:15px 22px;color:#ffffff;text-decoration:none;font-size:17px;font-weight:bold;border:1px solid #d85d13;border-radius:8px">Pulsa aquí para votar</a></td></tr></table>
+<div style="padding:15px;background:#fff3dc;border-left:4px solid #d85d13;border-radius:6px"><strong>Plazo máximo</strong><br>{{ deadline }} (hora de España peninsular)</div>
+<p style="font-size:14px;color:#596579">Solo podrás confirmar el reparto una vez. El enlace es personal: no lo compartas.</p>
+{% include 'email_app_footer.html' %}
+<p style="font-size:14px;color:#596579">Accede con tu usuario y contraseña. Si no la recuerdas, utiliza «He olvidado mi contraseña» en la pantalla de acceso.</p>
+<p style="margin-bottom:0">¡Gracias por participar!<br><strong>Liga Amigos XI</strong></p>
+</td></tr></table>
+</td></tr></table></body></html>

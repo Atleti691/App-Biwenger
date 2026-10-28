@@ -46,6 +46,14 @@ class VIPEmailTrackingTests(TestCase):
         self.assertEqual(mail.outbox[0].extra_headers['X-Mailin-custom'], f'vip_attempt:{attempt.referencia}')
         self.assertIn('50 puntos', mail.outbox[0].body)
         self.assertIn('Plazo máximo', mail.outbox[0].body)
+        html, mimetype = mail.outbox[0].alternatives[0]
+        self.assertEqual(mimetype, 'text/html')
+        self.assertIn('Pulsa aquí para votar</a>', html)
+        self.assertIn('Entrar en la aplicación</a>', html)
+        self.assertEqual(html.count('<a href='), 2)
+        self.assertIn('Plazo máximo', html)
+        self.assertIn('exactamente 50 puntos', html)
+        self.assertNotIn('>http', html)
 
     def test_individual_failures_and_missing_contact_are_recorded(self):
         missing = VotoPartidoVIP.objects.create(partido=self.match, division='Primera División',
