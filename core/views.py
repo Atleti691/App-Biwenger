@@ -782,10 +782,21 @@ def vip_matches(request, management=False):
                 message = f'Partido cerrado. Hay {len(winners)} acertantes, pero no se pudieron enviar sus correos.'
         elif action == 'update_match_details' and is_admin:
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'))
-            partido.resultado = request.POST.get('resultado', '').strip()
-            partido.goleadores = request.POST.get('goleadores', '').strip()
-            partido.save(update_fields=['resultado', 'goleadores'])
-            message = f'Resultado y goleadores de {partido.titulo} actualizados.'
+            score = request.POST.get('resultado', '').strip()
+            score_match = re.fullmatch(r'(\d{1,2})\s*[–-]\s*(\d{1,2})', score)
+            if not score_match:
+                message = 'Introduce el marcador con el formato local–visitante, por ejemplo 1–2.'
+            elif partido.cerrado and partido.goles_reales is not None and sum(map(int, score_match.groups())) != partido.goles_reales:
+                message = 'El marcador no coincide con los goles totales ya calculados. No se han cambiado datos ni premios.'
+            else:
+                with transaction.atomic():
+                    partido.resultado = '–'.join(score_match.groups())
+                    partido.goleadores = request.POST.get('goleadores', '').strip()
+                    partido.save(update_fields=['resultado', 'goleadores'])
+                    CambioRegistro.objects.create(usuario=request.user, jornada=partido.jornada or 0,
+                        accion='editar marcador VIP', detalle={'partido': partido.pk,
+                            'resultado': partido.resultado, 'goleadores': partido.goleadores})
+                message = f'Resultado y goleadores de {partido.titulo} actualizados.'
         elif action in ('remind_penalty', 'remind_penalty_last_day') and is_admin:
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'), cerrado=True)
             winners = list(partido.votos.filter(pronostico_goles=partido.opcion_goles_real, objetivo_penalizacion='', penalizaciones_objetivo={}))

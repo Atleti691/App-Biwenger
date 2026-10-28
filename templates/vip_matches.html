@@ -64,7 +64,17 @@
 <label for="escudo-visitante-{{ partido.id }}">Enlace del escudo de {{ partido.equipo_visitante }}</label>
 <input id="escudo-visitante-{{ partido.id }}" name="escudo_visitante" type="url" value="{{ partido.escudo_visitante }}" required>
 <button type="submit">Guardar escudos</button>
-</form></details>{% empty %}<p>No hay partidos para editar.</p>{% endfor %}
+</form>
+{% if is_admin %}<form method="post" class="compact-content">{% csrf_token %}
+<input type="hidden" name="action" value="update_match_details">
+<input type="hidden" name="partido_id" value="{{ partido.id }}">
+<label for="resultado-{{ partido.id }}">Marcador (local–visitante)</label>
+<input id="resultado-{{ partido.id }}" name="resultado" value="{{ partido.resultado }}" placeholder="Ejemplo: 1–2" required maxlength="80">
+<label for="goleadores-{{ partido.id }}">Goleadores y minutos</label>
+<textarea id="goleadores-{{ partido.id }}" name="goleadores" style="width:100%;min-height:80px" placeholder="Equipo: jugador (minuto)">{{ partido.goleadores }}</textarea>
+<p>No cambia los goles totales utilizados para los premios, los votos ni los repartos.</p>
+<button type="submit">Guardar marcador y goleadores</button>
+</form>{% endif %}</details>{% empty %}<p>No hay partidos para editar.</p>{% endfor %}
 </details></div>{% endif %}
 <section class="card">
 <h2>Partidos</h2>
