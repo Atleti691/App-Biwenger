@@ -1,3 +1,4 @@
+import uuid
 from django.conf import settings
 from django.db import models
 
@@ -143,6 +144,26 @@ class VotoPartidoVIP(models.Model):
 
     class Meta:
         unique_together = ('partido', 'division', 'manager')
+
+
+class CorreoPenalizacionVIP(models.Model):
+    voto = models.ForeignKey(VotoPartidoVIP, on_delete=models.CASCADE, related_name='correos_penalizacion')
+    referencia = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    email = models.EmailField(blank=True)
+    tipo = models.CharField(max_length=24, default='premio')
+    estado = models.CharField(max_length=24, default='preparando', choices=[
+        ('preparando', 'Preparando envío'), ('sin_correo', 'Sin correo registrado'),
+        ('error', 'Error de envío'), ('enviado', 'Enviado · entrega sin confirmar'),
+        ('entregado', 'Entrega confirmada por Brevo'), ('rechazado', 'Rechazado o bloqueado'),
+        ('aplazado', 'Entrega aplazada por Brevo')])
+    creado = models.DateTimeField(auto_now_add=True)
+    evento_fecha = models.DateTimeField(null=True, blank=True)
+    detalle = models.CharField(max_length=300, blank=True)
+    solicitado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['voto'], name='vip_last_day_once',
+            condition=models.Q(tipo='ultimo_dia', estado__in=['preparando', 'enviado', 'entregado', 'aplazado']))]
 
 
 class CodigoEmergenciaVIP(models.Model):

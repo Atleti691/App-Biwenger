@@ -1,0 +1,4 @@
+{% if is_admin and partido.cerrado %}<div class="actions" style="margin:12px 0">
+{% if partido.penalty_deadline_open %}<form method="post">{% csrf_token %}<input type="hidden" name="partido_id" value="{{ partido.id }}"><button name="action" value="remind_penalty" class="secondary">📧 Recordar a acertantes pendientes</button></form>{% endif %}
+<form method="post">{% csrf_token %}<input type="hidden" name="partido_id" value="{{ partido.id }}"><button name="action" value="remind_penalty_last_day" {% if not partido.penalty_last_day %}disabled style="opacity:.5;cursor:not-allowed"{% endif %}>⏰ Recordar pendientes · últimas 24 h</button></form>
+</div><small>El botón del último día se activa cuando faltan 24 horas o menos para cerrar el reparto. Solo avisa a quienes aún no han repartido sus puntos.</small>{% endif %}

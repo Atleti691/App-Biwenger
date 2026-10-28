@@ -5,9 +5,11 @@ from .tournament_assets import tournament_logo
 from .cup import copa_rey
 from .clause_pdf import clause_pdf
 from .views import league_playoffs
+from .vip_email_tracking import brevo_vip_events
 from .views import AppLoginView, administration_log, assistant_guide, change_password, communications, contact_form, dashboard, delete_suggestion, home, jornada_api, journey_summary, manage_managers, matches_api, origins, public_home, setup_collaborators, statistics, statistics_api, suggestions, tournaments, vip_matches, vip_penalty_choice, vip_statistics, vip_vote
 
 urlpatterns = [
+    path('webhooks/brevo/vip/', brevo_vip_events, name='brevo_vip_events'),
     path('logos-torneos/<slug:name>.png', tournament_logo, name='tournament_logo'),
     path('', home, name='home'),
     path('publico/', public_home, name='public_home'),

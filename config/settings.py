@@ -49,3 +49,4 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'Liga Am
 # Evita que una incidencia temporal del proveedor de correo bloquee una
 # votación hasta que Render cierre el proceso web.
 EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '10'))
+BREVO_WEBHOOK_TOKEN = os.getenv('BREVO_WEBHOOK_TOKEN', '')

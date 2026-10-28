@@ -3,6 +3,7 @@ import secrets
 import unicodedata
 import logging
 import re
+from django.conf import settings
 
 from django.contrib.auth import get_user_model, login, logout
 from django.contrib.auth.hashers import check_password, make_password
@@ -13,13 +14,13 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.mail import EmailMessage, get_connection
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from .forms import FirstPasswordChangeForm, LoginForm
-from .models import CopaReySorteo
+from .models import CopaReySorteo, CorreoPenalizacionVIP
 from .models import CambioRegistro, CodigoEmergenciaVIP, ContactoManager, JornadaRegistro, ManagerLiga, PartidoVIP, Sugerencia, UserAccess, VotoPartidoVIP, VotoSugerencia
 from .services.openligadb import get_matches, get_preferred_team_logo, get_team_logo
 from .journeys import journey_label, ordered_journeys
@@ -37,19 +38,41 @@ def manager_account(manager):
     return user
 
 
-def send_vip_penalty_links(request, partido, votes):
+def send_vip_penalty_links(request, partido, votes, kind='premio'):
     contacts = {(c.division, c.manager): c.email.strip() for c in ContactoManager.objects.exclude(email='')}
     connection = get_connection(fail_silently=False)
-    messages = []
+    sent = 0
     for vote in votes:
         email = contacts.get((vote.division, vote.manager))
+        try:
+            with transaction.atomic():
+                attempt = CorreoPenalizacionVIP.objects.create(voto=vote, email=email or '', tipo=kind,
+                    solicitado_por=request.user if request.user.is_authenticated else None,
+                    estado='preparando' if email else 'sin_correo')
+        except IntegrityError:
+            if kind == 'ultimo_dia':
+                continue  # Double clicks must not send the final reminder twice.
+            raise
         if not email:
             continue
         token = signing.dumps({'partido': partido.id, 'division': vote.division, 'manager': vote.manager}, salt='vip-penalty')
         url = request.build_absolute_uri(f'/partidos-vip/penalizacion/{token}/')
         deadline_text = timezone.localtime(partido.fecha_limite_penalizaciones).strftime('%d/%m/%Y a las %H:%M') if partido.fecha_limite_penalizaciones else 'la fecha indicada por la administración'
-        messages.append(EmailMessage(subject=f'Premio por acertar los goles — {partido.titulo}', body=(f'Hola {vote.manager}.\n\nHas acertado el número de goles de {partido.titulo}. Debes repartir exactamente 50 puntos de penalización entre uno o varios managers de tu división:\n{url}\n\nPlazo máximo: {deadline_text}. Solo podrás realizar esta elección una vez.'), to=[email], connection=connection))
-    return connection.send_messages(messages) if messages else 0
+        prefix = 'Últimas 24 horas para repartir tus puntos' if kind == 'ultimo_dia' else 'Recordatorio para repartir tus puntos' if kind == 'recordatorio' else 'Premio por acertar los goles'
+        message = EmailMessage(subject=f'{prefix} — {partido.titulo}', body=(f'Hola {vote.manager}.\n\nHas acertado el número de goles de {partido.titulo}. Debes repartir exactamente 50 puntos de penalización entre uno o varios managers de tu división:\n{url}\n\nPlazo máximo: {deadline_text}. Solo podrás realizar esta elección una vez.'), to=[email], connection=connection,
+            headers={'X-Mailin-custom': f'vip_attempt:{attempt.referencia}'})
+        try:
+            accepted = connection.send_messages([message]) or 0
+            if accepted:
+                # A webhook may already have confirmed delivery while SMTP was returning.
+                CorreoPenalizacionVIP.objects.filter(pk=attempt.pk, estado='preparando').update(estado='enviado')
+                sent += 1
+            else:
+                CorreoPenalizacionVIP.objects.filter(pk=attempt.pk, estado='preparando').update(estado='error', detalle='El servidor no aceptó el envío.')
+        except Exception:
+            logger.exception('Error enviando premio VIP: intento %s', attempt.pk)
+            CorreoPenalizacionVIP.objects.filter(pk=attempt.pk, estado='preparando').update(estado='error', detalle='No se pudo confirmar el envío; revisa Brevo antes de reenviar.')
+    return sent
 
 
 def send_vip_position_winner_emails(request, partido, division, winner_position, votes):
@@ -757,15 +780,22 @@ def vip_matches(request, management=False):
             partido.goleadores = request.POST.get('goleadores', '').strip()
             partido.save(update_fields=['resultado', 'goleadores'])
             message = f'Resultado y goleadores de {partido.titulo} actualizados.'
-        elif action == 'remind_penalty' and is_admin:
+        elif action in ('remind_penalty', 'remind_penalty_last_day') and is_admin:
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'), cerrado=True)
             winners = list(partido.votos.filter(pronostico_goles=partido.opcion_goles_real, objetivo_penalizacion='', penalizaciones_objetivo={}))
-            try:
-                sent = send_vip_penalty_links(request, partido, winners)
-                message = f'Recordatorio enviado a {sent} de {len(winners)} acertantes pendientes.'
-            except Exception:
-                logger.exception('No se pudieron recordar los premios VIP de %s', partido.titulo)
-                message = 'No se pudieron enviar los recordatorios a los acertantes.'
+            remaining = partido.fecha_limite_penalizaciones - timezone.now() if partido.fecha_limite_penalizaciones else None
+            if remaining is not None and remaining <= timedelta(0):
+                message = 'El plazo de reparto ha terminado. No se enviaron recordatorios.'
+            elif action == 'remind_penalty_last_day' and (remaining is None or remaining > timedelta(days=1)):
+                message = 'El recordatorio del último día solo se puede enviar durante las últimas 24 horas del plazo.'
+            else:
+                try:
+                    sent = send_vip_penalty_links(request, partido, winners,
+                        kind='ultimo_dia' if action == 'remind_penalty_last_day' else 'recordatorio')
+                    message = f'Recordatorio enviado a {sent} de {len(winners)} acertantes pendientes. Consulta el estado individual del correo.'
+                except Exception:
+                    logger.exception('No se pudieron recordar los premios VIP de %s', partido.titulo)
+                    message = 'No se pudieron enviar los recordatorios a los acertantes.'
         elif action == 'manual_penalty' and can_follow_vip:
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'), cerrado=True)
             division = request.POST.get('division', '')
@@ -902,7 +932,7 @@ def vip_matches(request, management=False):
                     'code': emergency_code,
                 }
                 message = f'CÓDIGO DE EMERGENCIA · {manager} · {division}: {emergency_code} · Caduca en 15 minutos y solo puede usarse una vez.'
-    partidos = list(PartidoVIP.objects.prefetch_related('votos').order_by('-creado'))
+    partidos = list(PartidoVIP.objects.prefetch_related('votos__correos_penalizacion' if management else 'votos').order_by('-creado'))
     active_identities = {(division, manager) for division, managers in active_league_managers().items() for manager in managers}
     for partido in partidos:
         manager_points = {}
@@ -984,7 +1014,12 @@ def vip_matches(request, management=False):
             partido.ganador_posicionamiento = leaders[0] if len(leaders) == 1 else ''
         partido.acertantes_goles = [v for v in partido.votos.all() if partido.cerrado and v.pronostico_goles == partido.opcion_goles_real]
         partido.penalty_deadline_open = not partido.fecha_limite_penalizaciones or timezone.now() <= partido.fecha_limite_penalizaciones
+        partido.penalty_last_day = bool(partido.fecha_limite_penalizaciones and
+            timedelta(0) < partido.fecha_limite_penalizaciones - timezone.now() <= timedelta(days=1))
         for winner in partido.acertantes_goles:
+            if management:
+                winner.penalty_emails = sorted(winner.correos_penalizacion.all(), key=lambda email: (email.creado, email.pk), reverse=True)
+                winner.latest_penalty_email = winner.penalty_emails[0] if winner.penalty_emails else None
             penalties = winner.penalizaciones_objetivo or ({winner.objetivo_penalizacion: 50} if winner.objetivo_penalizacion else {})
             winner.penalty_distribution = list(penalties.items())
             winner.manual_targets = [name for name in LEAGUE_MANAGERS.get(winner.division, []) if name != winner.manager]
@@ -992,7 +1027,7 @@ def vip_matches(request, management=False):
     if not management:
         for panel in vip_statistics_panels(request, partidos):
             panel['match'].results_panel = panel
-    return render(request, 'vip_matches.html', {'partidos': partidos, 'is_admin': is_admin, 'can_create_vip': can_create_vip, 'can_follow_vip': can_follow_vip, 'management': management, 'message': message, 'divisions': LEAGUE_MANAGERS.keys(), 'emergency_code_info': emergency_code_info})
+    return render(request, 'vip_matches.html', {'partidos': partidos, 'is_admin': is_admin, 'can_create_vip': can_create_vip, 'can_follow_vip': can_follow_vip, 'management': management, 'message': message, 'divisions': LEAGUE_MANAGERS.keys(), 'emergency_code_info': emergency_code_info, 'brevo_tracking_ready': bool(settings.BREVO_WEBHOOK_TOKEN)})
 
 
 def vip_penalty_choice(request, token):

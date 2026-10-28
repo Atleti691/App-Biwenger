@@ -1,0 +1,11 @@
+<details class="compact-panel" style="margin:5px 0;max-width:100%">
+<summary>📧 {% if winner.latest_penalty_email %}{{ winner.latest_penalty_email.get_estado_display }}{% else %}Sin registro de envío{% endif %}</summary>
+<div class="compact-content">
+<p>«Enviado» no confirma la entrega. «Entrega confirmada» significa que el servidor del destinatario lo aceptó; puede estar en spam y no confirma que el manager lo haya leído.</p>
+{% for email in winner.penalty_emails %}<div style="margin:8px 0">
+<strong>{{ email.creado|date:"d/m/Y H:i" }}</strong> · {{ email.get_estado_display }}<br>
+Destino: {{ email.email|default:'Sin correo registrado' }} · {% if email.tipo == 'ultimo_dia' %}Últimas 24 horas{% elif email.tipo == 'recordatorio' %}Recordatorio{% else %}Aviso de premio{% endif %}
+{% if email.evento_fecha %}<br>Confirmación de Brevo: {{ email.evento_fecha|date:"d/m/Y H:i" }}{% endif %}
+{% if email.detalle %}<br>{{ email.detalle }}{% endif %}
+</div>{% empty %}<p>Los envíos anteriores a esta mejora no tienen seguimiento individual. No podemos asegurar si llegaron.</p>{% endfor %}
+</div></details>
