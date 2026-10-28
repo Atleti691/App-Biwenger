@@ -161,3 +161,6 @@ class VIPEmailTrackingTests(TestCase):
         self.assertContains(response, 'Enviado · entrega sin confirmar')
         self.assertContains(response, 'El reparto ya está completado.')
         self.assertEqual(CorreoPenalizacionVIP.objects.get().estado, 'enviado')
+        self.assertContains(response, 'Repartos realizados · 1/1')
+        self.assertContains(response, 'Correos enviados · 1/1')
+        self.assertContains(response, 'Repartos completados · 1')

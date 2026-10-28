@@ -1,9 +1,13 @@
+{% include 'vip_penalty_progress.html' %}
 <div class="vip-penalty-table-scroll">
 <table class="vip-penalty-table">
 <caption>Seguimiento de los acertantes y del reparto de puntos</caption>
 <colgroup><col class="vip-col-manager"><col class="vip-col-division"><col class="vip-col-email"><col class="vip-col-distribution"><col class="vip-col-actions"></colgroup>
 <thead><tr><th scope="col">Manager</th><th scope="col">División</th><th scope="col">Correo</th><th scope="col">Reparto de puntos</th><th scope="col">Acciones</th></tr></thead>
-<tbody>{% for winner in partido.acertantes_goles %}<tr>
+<tbody>{% for winner in partido.acertantes_goles %}
+{% ifchanged winner.penalty_is_done %}<tr class="vip-penalty-section"><th colspan="5" scope="colgroup">{% if winner.penalty_is_done %}✅ Repartos completados · {{ partido.penalty_progress.overall.done }}{% else %}⏳ Pendientes de repartir · {{ partido.penalty_progress.overall.pending }}{% endif %}</th></tr>{% endifchanged %}
+{% ifchanged winner.penalty_is_done winner.division %}<tr class="vip-penalty-division"><th colspan="5" scope="colgroup">{{ winner.division }}</th></tr>{% endifchanged %}
+<tr>
 <th scope="row">{{ winner.manager }}</th>
 <td>{{ winner.division }}</td>
 <td>{% include 'vip_penalty_email_status.html' %}</td>

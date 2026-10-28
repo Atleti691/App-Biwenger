@@ -1041,6 +1041,9 @@ def vip_matches(request, management=False):
             winner.penalty_distribution = list(penalties.items())
             winner.manual_targets = [name for name in LEAGUE_MANAGERS.get(winner.division, []) if name != winner.manager]
             winner.can_manual_penalty = is_admin or winner.division in assigned_divisions or winner.division in protected_divisions
+        if management:
+            from .vip_management import penalty_progress
+            partido.penalty_progress = penalty_progress(partido.acertantes_goles, LEAGUE_MANAGERS)
     if not management:
         for panel in vip_statistics_panels(request, partidos):
             panel['match'].results_panel = panel

@@ -1,0 +1,6 @@
+<section class="vip-penalty-progress" aria-label="Progreso del reparto de puntos">
+<h4>Progreso de los acertantes</h4>
+<p class="vip-progress-note">Porcentajes sobre los acertantes de goles de este partido, no sobre todos los votantes. Cada acertante cuenta una vez aunque se le envíen varios avisos. Correos enviados no significa entrega confirmada. Los envíos antiguos sin registro no se dan por enviados.</p>
+{% include 'vip_penalty_progress_card.html' with progress=partido.penalty_progress.overall overall=True %}
+<div class="vip-progress-divisions">{% for progress in partido.penalty_progress.divisions %}{% include 'vip_penalty_progress_card.html' with overall=False %}{% endfor %}</div>
+</section>

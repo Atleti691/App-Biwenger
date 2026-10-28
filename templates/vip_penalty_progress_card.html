@@ -1,0 +1,8 @@
+<article class="vip-progress-card{% if overall %} vip-progress-overall{% endif %}">
+<h5>{{ progress.name }}</h5>
+<div class="vip-progress-label"><span>Repartos realizados · {{ progress.done }}/{{ progress.total }}</span><strong>{{ progress.done_percentage }}%</strong></div>
+<div class="vip-progress-track" role="progressbar" aria-label="Repartos realizados · {{ progress.name }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ progress.done_percentage }}"><div class="vip-progress-fill vip-progress-distributions" style="width:{{ progress.done_percentage }}%"></div></div>
+<div class="vip-progress-label"><span>Correos enviados · {{ progress.sent }}/{{ progress.total }}</span><strong>{{ progress.sent_percentage }}%</strong></div>
+<div class="vip-progress-track" role="progressbar" aria-label="Correos enviados · {{ progress.name }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ progress.sent_percentage }}"><div class="vip-progress-fill vip-progress-emails" style="width:{{ progress.sent_percentage }}%"></div></div>
+<p class="vip-progress-count">⏳ {{ progress.pending }} pendientes{% if progress.unknown %} · {{ progress.unknown }} sin registro de correo{% endif %}{% if not progress.total %} · Sin acertantes{% endif %}</p>
+</article>
