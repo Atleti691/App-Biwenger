@@ -1,0 +1,27 @@
+<div class="vip-penalty-table-scroll">
+<table class="vip-penalty-table">
+<caption>Seguimiento de los acertantes y del reparto de puntos</caption>
+<colgroup><col class="vip-col-manager"><col class="vip-col-division"><col class="vip-col-email"><col class="vip-col-distribution"><col class="vip-col-actions"></colgroup>
+<thead><tr><th scope="col">Manager</th><th scope="col">División</th><th scope="col">Correo</th><th scope="col">Reparto de puntos</th><th scope="col">Acciones</th></tr></thead>
+<tbody>{% for winner in partido.acertantes_goles %}<tr>
+<th scope="row">{{ winner.manager }}</th>
+<td>{{ winner.division }}</td>
+<td>{% include 'vip_penalty_email_status.html' %}</td>
+<td>{% if winner.penalty_distribution %}<span class="vip-penalty-state vip-penalty-done">✅ Reparto realizado</span>
+{% if show_allocations %}<ul class="vip-penalty-allocations">{% for target, points in winner.penalty_distribution %}<li>{{ target }}: −{{ points }} puntos</li>{% endfor %}</ul>{% endif %}
+{% else %}<span class="vip-penalty-state vip-penalty-pending">⏳ Pendiente de repartir</span>{% endif %}</td>
+<td>{% if winner.penalty_distribution %}{% if is_admin %}
+<form method="post" onsubmit="return confirm('¿Anular el reparto de {{ winner.manager|escapejs }} y permitirle hacerlo de nuevo?')">{% csrf_token %}
+<input type="hidden" name="partido_id" value="{{ partido.id }}"><input type="hidden" name="division" value="{{ winner.division }}"><input type="hidden" name="manager" value="{{ winner.manager }}">
+<button name="action" value="reset_penalty" class="vip-reset-penalty">↩ Deshacer reparto</button>
+</form>{% else %}<span class="vip-no-action">—</span>{% endif %}
+{% elif winner.can_manual_penalty and partido.penalty_deadline_open %}
+<details class="compact-panel vip-manual-distribution"><summary>✍️ Registrar reparto manual</summary><div class="compact-content">
+<form method="post" class="manual-penalty-form">{% csrf_token %}
+<input type="hidden" name="partido_id" value="{{ partido.id }}"><input type="hidden" name="division" value="{{ winner.division }}"><input type="hidden" name="manager" value="{{ winner.manager }}">
+<p>Reparte exactamente 50 puntos. Se mantienen los mismos límites que en el formulario del manager.</p>
+{% for target in winner.manual_targets %}<label class="vip-manual-target"><span>{{ target }}</span><input class="manual-points" name="points_{{ forloop.counter0 }}" type="number" min="0" max="50" value="0" aria-label="Puntos a quitar a {{ target }}"></label>{% endfor %}
+<strong class="manual-total">Total: 0 de 50</strong><button name="action" value="manual_penalty" type="submit">Guardar reparto manual</button>
+</form></div></details>{% else %}<span class="vip-no-action">—</span>{% endif %}</td>
+</tr>{% empty %}<tr><td colspan="5">No hubo acertantes.</td></tr>{% endfor %}</tbody>
+</table></div>

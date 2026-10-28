@@ -8,13 +8,15 @@
 <style>*{box-sizing:border-box}body{margin:0;padding:22px;background:linear-gradient(135deg,#fff3df,#f2eaff);font:15px Arial;color:#172033}main{max-width:1100px;margin:auto}.hero,.card{border-radius:20px;padding:24px}.hero{background:linear-gradient(135deg,#702500,#e77929);color:#fff}.hero a{float:right;background:#fff;color:#702500;padding:9px 12px;border-radius:9px;text-decoration:none}.card{background:#fff;margin-top:18px;box-shadow:0 8px 25px #44200b18}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:15px}.match{border:1px solid #efd8c4;border-radius:15px;padding:17px}.teams{text-align:center;font-size:20px;font-weight:700}.versus{color:#d35400;margin:0 10px}.actions{display:flex;gap:8px;flex-wrap:wrap}.button,button{border:0;border-radius:9px;padding:10px 13px;background:#d85d13;color:#fff;text-decoration:none;font-weight:700;cursor:pointer}.secondary{background:#6246a8}input{width:100%;padding:10px;margin:5px 0 12px;border:1px solid #d8c9bd;border-radius:8px}.message{background:#e5f7eb;color:#176b3a;padding:11px;border-radius:9px}.share{font-size:12px;word-break:break-all;background:#fff5eb;padding:9px;border-radius:8px}.status{margin-top:14px;border-top:1px solid #efd8c4;padding-top:10px}.status summary{cursor:pointer;font-weight:800}.division-status{margin:12px 0;padding:12px;background:#fff8f0;border-radius:12px}.division-title{display:flex;align-items:center;justify-content:space-between;gap:12px}.division-title h4{margin:0}.battery{display:flex;align-items:center;gap:8px;font-weight:900;color:#773306}.battery-shell{position:relative;width:110px;height:25px;padding:3px;border:2px solid #773306;border-radius:6px;background:#fff}.battery-shell:after{content:'';position:absolute;right:-7px;top:7px;width:5px;height:9px;border-radius:0 3px 3px 0;background:#773306}.battery-fill{height:100%;width:var(--progress);border-radius:3px;background:linear-gradient(90deg,#ef7b25,#54c96f);transition:width .4s}.battery-count{font-size:12px;color:#687080}.voted{color:#18743d}.pending{color:#a3440b}.status ul{margin:5px 0 12px;padding-left:20px}.create-box summary{display:inline-block;background:#d85d13;color:#fff;padding:12px 16px;border-radius:10px;font-weight:800;cursor:pointer;list-style:none}.create-box summary::-webkit-details-marker{display:none}.create-box[open] summary{margin-bottom:18px}@media(max-width:540px){.division-title{align-items:flex-start;flex-direction:column}.battery-shell{width:145px}}</style>
 <style>.matches-list{display:grid!important;grid-template-columns:1fr!important}.match-toggle{border:1px solid #efd8c4;border-radius:15px;background:#fff;overflow:hidden}.match-summary{cursor:pointer;list-style:none;padding:17px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:15px;background:linear-gradient(135deg,#fff8f0,#f7f2ff)}.match-summary::-webkit-details-marker{display:none}.club{text-align:center;font-weight:800;font-size:17px}.club img{display:block;width:64px;height:64px;object-fit:contain;margin:0 auto 6px}.score{text-align:center}.score strong{font-size:21px;color:#b44709}.match-body{padding:17px}.match-body textarea{width:100%;min-height:75px;padding:10px;border:1px solid #d8c9bd;border-radius:8px}@media(max-width:540px){.club{font-size:13px}.club img{width:48px;height:48px}.match-summary{gap:7px}}</style>
 <style>.summary-reminder{margin-top:9px}.summary-reminder button{padding:7px 10px;font-size:12px}.info-button{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border-radius:50%;background:#6246a8;color:#fff;font-size:14px;vertical-align:middle}.compact-panel{margin-top:14px;border:1px solid #eadccf;border-radius:12px;background:#fffaf5}.compact-panel>summary{cursor:pointer;list-style:none;padding:13px 15px;font-weight:800}.compact-panel>summary::-webkit-details-marker{display:none}.compact-panel>summary:after{content:'＋';float:right}.compact-panel[open]>summary:after{content:'−'}.compact-content{padding:0 15px 15px}.help-modal{display:none;position:fixed;inset:0;z-index:1000;background:#17203399;padding:20px;align-items:center;justify-content:center}.help-modal.is-open{display:flex}.help-dialog{position:relative;max-width:560px;width:100%;padding:24px;border-radius:18px;background:#fff;box-shadow:0 20px 60px #0005}.help-dialog h3{margin-top:0}.help-close{position:absolute;right:12px;top:10px;background:transparent;color:#172033;font-size:24px;padding:4px 9px}@media(max-width:620px){.summary-reminder button{font-size:11px;padding:6px}.match-summary{grid-template-columns:1fr 1.15fr 1fr}}</style>
-</head>
 <style>
 .vip-match-card{min-width:0}.vip-results{margin:8px 0 18px;border:1px solid #dfd6f0;border-radius:12px;background:#fff}.vip-results>summary{padding:12px 15px;cursor:pointer;font-weight:800;color:#54398c}.vip-results-content{padding:0 15px 15px}.vip-results-divisions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:14px}.vip-result-division{padding:14px;border:1px solid #e7ddd2;border-radius:12px;background:#fffaf5;min-width:0}.vip-result-division h3{margin-top:0}.vip-result-division>.vip-participation-track{margin-top:8px}.vip-result-averages{margin:12px 0;background:#fff0da;padding:10px;border-radius:9px;line-height:1.8}.vip-result-muted{color:#68748a;font-size:13px;line-height:1.5}.vip-result-bars{display:grid;gap:7px}.vip-result-bar{display:grid;grid-template-columns:105px minmax(0,1fr) 24px;gap:7px;align-items:center;font-size:12px}.vip-result-bar>div{height:12px;border-radius:8px;overflow:hidden;background:#e5e8ee}.vip-result-bar i{display:block;height:100%;background:#3157d5;border-radius:8px}.vip-result-goals i{background:#8a4ec3}.vip-participation-track{height:10px;border-radius:10px;overflow:hidden;background:#eadfd4}.vip-participation-fill{height:100%;border-radius:10px;background:linear-gradient(90deg,#eea33a,#2baf76)}
+.vip-position-voters{position:relative;min-width:0}.vip-position-voters>summary{cursor:pointer;list-style:none;border-radius:5px}.vip-position-voters>summary::-webkit-details-marker{display:none}.vip-position-voters>summary:focus-visible{outline:2px solid #3157d5;outline-offset:3px}.vip-voters-balloon{display:none;position:absolute;top:100%;left:0;z-index:20;width:min(300px,100%);padding:12px;background:#fff;color:#172033;border:1px solid #c9cfe0;border-radius:10px;box-shadow:0 8px 24px #17203330;font-size:13px;line-height:1.5}.vip-voters-balloon ul{margin:8px 0 0;padding-left:18px;max-height:200px;overflow-y:auto;overflow-wrap:anywhere}.vip-position-voters[open]>.vip-voters-balloon{display:block}.vip-hover-preview>.vip-voters-balloon{pointer-events:none}
 </style>
+
 
 <style>.vip-participation{margin:12px auto 4px;max-width:290px;min-width:130px;text-align:left}.vip-participation-label{display:flex;justify-content:space-between;gap:8px;font-size:11px;font-weight:400;color:#563a2c;margin-bottom:5px}.vip-participation-label strong{font-size:12px!important;color:#14683d}.vip-participation-track{height:10px;border-radius:10px;overflow:hidden;background:#eadfd4}.vip-participation-fill{height:100%;border-radius:10px;background:linear-gradient(90deg,#eea33a,#2baf76)}@media(max-width:540px){.vip-participation{min-width:0}.vip-participation-label{font-size:10px;flex-wrap:wrap}}</style>
 <style>.votacion-finalizada button[value="emergency_code"]{display:none!important}.collaborator-view .emergency-list form{display:none!important}</style>
+</head>
 <body class="">
 <main>
 <header class="hero">
@@ -23,6 +25,7 @@
 <p>Consulta los partidos, participa en las votaciones y revisa sus resultados.</p>
 <a href="/?menu=consulta">Volver a Consulta de liga</a>
 </header>
+
 
 
 <section class="card">
@@ -34,13 +37,14 @@
 </div>
 </div><div class="club">Real Madrid</div></summary><div class="match-body">
 <p>
-<strong>73</strong> votos · Cierre: 16/10/2026 13:13</p>
+<strong>73</strong> votos · Cierre: 26/10/2026 20:18</p>
 <p class="share">http://testserver/partidos-vip/votar/1/</p>
 <div class="actions">
 </div><p>
 <strong>Finalizado:</strong> 3 goles totales. El posicionamiento se calcula de forma independiente en cada división.</p>
-<p>
-<strong>Acertantes de goles:</strong><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 0</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 1</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 2</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 3</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 4</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 5</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 6</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 7</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 8</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 9</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 10</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 11</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 12</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 13</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 14</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 15</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 16</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 17</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 18</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 19</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 20</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 21</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 22</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 23</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 24</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 25</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 26</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 27</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 28</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 29</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 30</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 31</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 32</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 33</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 34</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 35</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 36</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 37</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 38</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 39</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 40</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 41</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 42</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 43</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 44</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 45</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 46</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 47</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 48</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 49</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 50</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 51</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 52</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 53</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 54</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 55</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 56</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 57</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 58</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 59</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 60</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 61</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 62</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 63</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 64</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 65</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 66</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 67</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 68</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 69</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 70</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 71</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 72</strong> · Primera División<span>⏳ Pendiente de repartir</span></span></p></div></details><details class="vip-results" id="vip-results-1">
+<div>
+
+<strong>Acertantes de goles:</strong><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 0</strong> · Primera División<span>✅ Reparto realizado</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 1</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 2</strong> · Primera División<span>✅ Reparto realizado</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 3</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 4</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 5</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 6</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 7</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 8</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 9</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 10</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 11</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 12</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 13</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 14</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 15</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 16</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 17</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 18</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 19</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 20</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 21</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 22</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 23</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 24</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 25</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 26</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 27</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 28</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 29</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 30</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 31</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 32</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 33</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 34</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 35</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 36</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 37</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 38</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 39</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 40</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 41</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 42</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 43</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 44</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 45</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 46</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 47</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 48</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 49</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 50</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 51</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 52</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 53</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 54</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 55</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 56</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 57</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 58</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 59</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 60</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 61</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 62</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 63</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 64</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 65</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 66</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 67</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 68</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 69</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 70</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 71</strong> · Primera División<span>⏳ Pendiente de repartir</span></span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#f5f1ff;border-radius:9px"><strong>Manager 72</strong> · Primera División<span>⏳ Pendiente de repartir</span></span></div></div></details><details class="vip-results" id="vip-results-1">
 <summary>📊 Resultados del partido VIP</summary>
 <div class="vip-results-content"><div class="vip-results-divisions">
 <article class="vip-result-division"><h3>Primera División</h3>
@@ -48,20 +52,86 @@
 <div class="vip-participation-track" role="progressbar" aria-label="Participación de Primera División" aria-valuemin="0" aria-valuemax="100" aria-valuenow="91"><div class="vip-participation-fill" style="width:91%"></div></div>
 <div class="vip-result-averages"><div>Media Atlético de Madrid: <strong>50,0</strong></div><div>Media Real Madrid: <strong>55,0</strong></div><div>Media Ninguno de los dos: <strong>60,0</strong></div><div>🏆 Posicionamiento ganador: <strong>Ninguno de los dos</strong></div></div>
 <h4>Posicionamiento</h4><div class="vip-result-bars">
-<div class="vip-result-bar"><span>Atlético de Madrid</span><div><i style="width:31%"></i></div><b>25</b></div>
-<div class="vip-result-bar"><span>Real Madrid</span><div><i style="width:30%"></i></div><b>24</b></div>
-<div class="vip-result-bar"><span>Ninguno</span><div><i style="width:30%"></i></div><b>24</b></div></div>
+
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: Atlético de Madrid · Primera División">
+<span>Atlético de Madrid ⓘ</span><div><i style="width:31%"></i></div><b>25</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>Atlético de Madrid · Primera División</strong>
+<ul><li>Manager 0</li><li>Manager 12</li><li>Manager 15</li><li>Manager 18</li><li>Manager 21</li><li>Manager 24</li><li>Manager 27</li><li>Manager 3</li><li>Manager 30</li><li>Manager 33</li><li>Manager 36</li><li>Manager 39</li><li>Manager 42</li><li>Manager 45</li><li>Manager 48</li><li>Manager 51</li><li>Manager 54</li><li>Manager 57</li><li>Manager 6</li><li>Manager 60</li><li>Manager 63</li><li>Manager 66</li><li>Manager 69</li><li>Manager 72</li><li>Manager 9</li></ul>
+</div>
+</details>
+
+
+
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: Real Madrid · Primera División">
+<span>Real Madrid ⓘ</span><div><i style="width:30%"></i></div><b>24</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>Real Madrid · Primera División</strong>
+<ul><li>Manager 1</li><li>Manager 10</li><li>Manager 13</li><li>Manager 16</li><li>Manager 19</li><li>Manager 22</li><li>Manager 25</li><li>Manager 28</li><li>Manager 31</li><li>Manager 34</li><li>Manager 37</li><li>Manager 4</li><li>Manager 40</li><li>Manager 43</li><li>Manager 46</li><li>Manager 49</li><li>Manager 52</li><li>Manager 55</li><li>Manager 58</li><li>Manager 61</li><li>Manager 64</li><li>Manager 67</li><li>Manager 7</li><li>Manager 70</li></ul>
+</div>
+</details>
+
+
+
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: Ninguno · Primera División">
+<span>Ninguno ⓘ</span><div><i style="width:30%"></i></div><b>24</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>Ninguno · Primera División</strong>
+<ul><li>Manager 11</li><li>Manager 14</li><li>Manager 17</li><li>Manager 2</li><li>Manager 20</li><li>Manager 23</li><li>Manager 26</li><li>Manager 29</li><li>Manager 32</li><li>Manager 35</li><li>Manager 38</li><li>Manager 41</li><li>Manager 44</li><li>Manager 47</li><li>Manager 5</li><li>Manager 50</li><li>Manager 53</li><li>Manager 56</li><li>Manager 59</li><li>Manager 62</li><li>Manager 65</li><li>Manager 68</li><li>Manager 71</li><li>Manager 8</li></ul>
+</div>
+</details>
+
+</div>
 <h4>Pronóstico de goles</h4><div class="vip-result-bars vip-result-goals"><div class="vip-result-bar"><span>0 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>1 gol</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>2 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>3 o más</span><div><i style="width:91%"></i></div><b>73</b></div></div>
-<h4>Penalizaciones recibidas</h4><p class="vip-result-muted">Todavía no se han repartido puntos.</p>
+<h4>Penalizaciones recibidas</h4><ul><li><strong>Manager 79</strong>: 100 puntos</li></ul>
 
 </article><article class="vip-result-division"><h3>Segunda División</h3>
 <strong>0 de 0 votos · 0%</strong>
 <div class="vip-participation-track" role="progressbar" aria-label="Participación de Segunda División" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="vip-participation-fill" style="width:0%"></div></div>
 <p class="vip-result-muted">⏳ Pendiente de finalizar el partido y cerrar la jornada de esta división para calcular las medias.</p>
 <h4>Posicionamiento</h4><div class="vip-result-bars">
-<div class="vip-result-bar"><span>Atlético de Madrid</span><div><i style="width:0%"></i></div><b>0</b></div>
-<div class="vip-result-bar"><span>Real Madrid</span><div><i style="width:0%"></i></div><b>0</b></div>
-<div class="vip-result-bar"><span>Ninguno</span><div><i style="width:0%"></i></div><b>0</b></div></div>
+
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: Atlético de Madrid · Segunda División">
+<span>Atlético de Madrid ⓘ</span><div><i style="width:0%"></i></div><b>0</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>Atlético de Madrid · Segunda División</strong>
+<ul><li>Nadie eligió esta opción.</li></ul>
+</div>
+</details>
+
+
+
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: Real Madrid · Segunda División">
+<span>Real Madrid ⓘ</span><div><i style="width:0%"></i></div><b>0</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>Real Madrid · Segunda División</strong>
+<ul><li>Nadie eligió esta opción.</li></ul>
+</div>
+</details>
+
+
+
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: Ninguno · Segunda División">
+<span>Ninguno ⓘ</span><div><i style="width:0%"></i></div><b>0</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>Ninguno · Segunda División</strong>
+<ul><li>Nadie eligió esta opción.</li></ul>
+</div>
+</details>
+
+</div>
 <h4>Pronóstico de goles</h4><div class="vip-result-bars vip-result-goals"><div class="vip-result-bar"><span>0 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>1 gol</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>2 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>3 o más</span><div><i style="width:0%"></i></div><b>0</b></div></div>
 <h4>Penalizaciones recibidas</h4><p class="vip-result-muted">Todavía no se han repartido puntos.</p>
 
@@ -70,9 +140,42 @@
 <div class="vip-participation-track" role="progressbar" aria-label="Participación de Primera RFEF" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="vip-participation-fill" style="width:0%"></div></div>
 <p class="vip-result-muted">⏳ Pendiente de finalizar el partido y cerrar la jornada de esta división para calcular las medias.</p>
 <h4>Posicionamiento</h4><div class="vip-result-bars">
-<div class="vip-result-bar"><span>Atlético de Madrid</span><div><i style="width:0%"></i></div><b>0</b></div>
-<div class="vip-result-bar"><span>Real Madrid</span><div><i style="width:0%"></i></div><b>0</b></div>
-<div class="vip-result-bar"><span>Ninguno</span><div><i style="width:0%"></i></div><b>0</b></div></div>
+
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: Atlético de Madrid · Primera RFEF">
+<span>Atlético de Madrid ⓘ</span><div><i style="width:0%"></i></div><b>0</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>Atlético de Madrid · Primera RFEF</strong>
+<ul><li>Nadie eligió esta opción.</li></ul>
+</div>
+</details>
+
+
+
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: Real Madrid · Primera RFEF">
+<span>Real Madrid ⓘ</span><div><i style="width:0%"></i></div><b>0</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>Real Madrid · Primera RFEF</strong>
+<ul><li>Nadie eligió esta opción.</li></ul>
+</div>
+</details>
+
+
+
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: Ninguno · Primera RFEF">
+<span>Ninguno ⓘ</span><div><i style="width:0%"></i></div><b>0</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>Ninguno · Primera RFEF</strong>
+<ul><li>Nadie eligió esta opción.</li></ul>
+</div>
+</details>
+
+</div>
 <h4>Pronóstico de goles</h4><div class="vip-result-bars vip-result-goals"><div class="vip-result-bar"><span>0 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>1 gol</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>2 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>3 o más</span><div><i style="width:0%"></i></div><b>0</b></div></div>
 <h4>Penalizaciones recibidas</h4><p class="vip-result-muted">Todavía no se han repartido puntos.</p>
 
@@ -81,9 +184,42 @@
 <div class="vip-participation-track" role="progressbar" aria-label="Participación de Segunda RFEF" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="vip-participation-fill" style="width:0%"></div></div>
 <p class="vip-result-muted">⏳ Pendiente de finalizar el partido y cerrar la jornada de esta división para calcular las medias.</p>
 <h4>Posicionamiento</h4><div class="vip-result-bars">
-<div class="vip-result-bar"><span>Atlético de Madrid</span><div><i style="width:0%"></i></div><b>0</b></div>
-<div class="vip-result-bar"><span>Real Madrid</span><div><i style="width:0%"></i></div><b>0</b></div>
-<div class="vip-result-bar"><span>Ninguno</span><div><i style="width:0%"></i></div><b>0</b></div></div>
+
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: Atlético de Madrid · Segunda RFEF">
+<span>Atlético de Madrid ⓘ</span><div><i style="width:0%"></i></div><b>0</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>Atlético de Madrid · Segunda RFEF</strong>
+<ul><li>Nadie eligió esta opción.</li></ul>
+</div>
+</details>
+
+
+
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: Real Madrid · Segunda RFEF">
+<span>Real Madrid ⓘ</span><div><i style="width:0%"></i></div><b>0</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>Real Madrid · Segunda RFEF</strong>
+<ul><li>Nadie eligió esta opción.</li></ul>
+</div>
+</details>
+
+
+
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: Ninguno · Segunda RFEF">
+<span>Ninguno ⓘ</span><div><i style="width:0%"></i></div><b>0</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>Ninguno · Segunda RFEF</strong>
+<ul><li>Nadie eligió esta opción.</li></ul>
+</div>
+</details>
+
+</div>
 <h4>Pronóstico de goles</h4><div class="vip-result-bars vip-result-goals"><div class="vip-result-bar"><span>0 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>1 gol</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>2 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>3 o más</span><div><i style="width:0%"></i></div><b>0</b></div></div>
 <h4>Penalizaciones recibidas</h4><p class="vip-result-muted">Todavía no se han repartido puntos.</p>
 
@@ -92,9 +228,42 @@
 <div class="vip-participation-track" role="progressbar" aria-label="Participación de Liga Moeve" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="vip-participation-fill" style="width:0%"></div></div>
 <p class="vip-result-muted">⏳ Pendiente de finalizar el partido y cerrar la jornada de esta división para calcular las medias.</p>
 <h4>Posicionamiento</h4><div class="vip-result-bars">
-<div class="vip-result-bar"><span>Atlético de Madrid</span><div><i style="width:0%"></i></div><b>0</b></div>
-<div class="vip-result-bar"><span>Real Madrid</span><div><i style="width:0%"></i></div><b>0</b></div>
-<div class="vip-result-bar"><span>Ninguno</span><div><i style="width:0%"></i></div><b>0</b></div></div>
+
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: Atlético de Madrid · Liga Moeve">
+<span>Atlético de Madrid ⓘ</span><div><i style="width:0%"></i></div><b>0</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>Atlético de Madrid · Liga Moeve</strong>
+<ul><li>Nadie eligió esta opción.</li></ul>
+</div>
+</details>
+
+
+
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: Real Madrid · Liga Moeve">
+<span>Real Madrid ⓘ</span><div><i style="width:0%"></i></div><b>0</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>Real Madrid · Liga Moeve</strong>
+<ul><li>Nadie eligió esta opción.</li></ul>
+</div>
+</details>
+
+
+
+<details class="vip-position-voters">
+<summary class="vip-result-bar" aria-label="Ver managers: Ninguno · Liga Moeve">
+<span>Ninguno ⓘ</span><div><i style="width:0%"></i></div><b>0</b>
+</summary>
+<div class="vip-voters-balloon">
+<strong>Ninguno · Liga Moeve</strong>
+<ul><li>Nadie eligió esta opción.</li></ul>
+</div>
+</details>
+
+</div>
 <h4>Pronóstico de goles</h4><div class="vip-result-bars vip-result-goals"><div class="vip-result-bar"><span>0 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>1 gol</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>2 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>3 o más</span><div><i style="width:0%"></i></div><b>0</b></div></div>
 <h4>Penalizaciones recibidas</h4><p class="vip-result-muted">Todavía no se han repartido puntos.</p>
 
@@ -108,5 +277,28 @@
 <div class="help-modal" id="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title"><div class="help-dialog"><button type="button" class="help-close" aria-label="Cerrar">×</button><h3 id="help-title"></h3><p id="help-text"></p></div></div>
 <script>document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('a[href^="#resultados-"]').forEach(link=>{const card=link.closest('.match-toggle');card?.querySelectorAll('button[value="emergency_code"]').forEach(button=>button.closest('form')?.remove())});document.querySelectorAll('.manual-penalty-form').forEach(form=>{const inputs=[...form.querySelectorAll('.manual-points')],total=form.querySelector('.manual-total');const update=()=>{const sum=inputs.reduce((value,input)=>value+(parseInt(input.value,10)||0),0);total.textContent=`Total: ${sum} de 50`;total.style.color=sum===50?'#18743d':'#b42318'};inputs.forEach(input=>input.addEventListener('input',update));form.addEventListener('submit',event=>{const sum=inputs.reduce((value,input)=>value+(parseInt(input.value,10)||0),0);if(sum!==50){event.preventDefault();update();alert('El reparto debe sumar exactamente 50 puntos.')}});update()});const modal=document.getElementById('help-modal'),title=document.getElementById('help-title'),text=document.getElementById('help-text');document.querySelectorAll('.info-button').forEach(button=>button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();title.textContent=button.dataset.helpTitle||'Información';text.textContent=button.dataset.help||'';modal.classList.add('is-open')}));const close=()=>modal.classList.remove('is-open');modal.querySelector('.help-close').addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close()});document.addEventListener('keydown',event=>{if(event.key==='Escape')close()})});</script>
 
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.vip-position-voters').forEach(balloon=>{
+    const bar=balloon.querySelector('summary');
+    bar.addEventListener('pointerenter',event=>{
+      if(event.pointerType==='mouse'&&window.matchMedia('(hover:hover)').matches){
+        document.querySelectorAll('.vip-position-voters[open]').forEach(other=>{if(other!==balloon)other.open=false});
+        balloon.classList.add('vip-hover-preview');
+        balloon.open=true;
+      }
+    });
+    bar.addEventListener('pointerleave',event=>{
+      if(event.pointerType==='mouse'){
+        balloon.open=false;
+        balloon.classList.remove('vip-hover-preview');
+      }
+    });
+    balloon.addEventListener('keydown',event=>{
+      if(event.key==='Escape'){balloon.open=false;bar.focus()}
+    });
+  });
+});
+</script>
 </body>
 </html>

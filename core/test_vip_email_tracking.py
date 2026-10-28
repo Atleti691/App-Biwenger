@@ -146,3 +146,18 @@ class VIPEmailTrackingTests(TestCase):
         response = self.client.get(reverse('vip_matches'))
         self.assertNotContains(response, 'private-destination@example.com')
         self.assertNotContains(response, 'Recordar pendientes · últimas 24 h')
+
+    def test_aligned_table_keeps_delivery_and_completed_distribution_separate(self):
+        self.winner.penalizaciones_objetivo = {'Otro': 50}
+        self.winner.save()
+        CorreoPenalizacionVIP.objects.create(voto=self.winner, email='winner@example.com', estado='enviado')
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('vip_management'))
+        self.assertContains(response, '<table class="vip-penalty-table">')
+        for label in ('Manager', 'División', 'Correo', 'Reparto de puntos', 'Acciones'):
+            self.assertContains(response, f'<th scope="col">{label}</th>')
+        self.assertContains(response, '✅ Reparto realizado')
+        self.assertContains(response, '↩ Deshacer reparto')
+        self.assertContains(response, 'Enviado · entrega sin confirmar')
+        self.assertContains(response, 'El reparto ya está completado.')
+        self.assertEqual(CorreoPenalizacionVIP.objects.get().estado, 'enviado')

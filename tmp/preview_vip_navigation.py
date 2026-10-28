@@ -15,7 +15,7 @@ from django.core.management import call_command
 from django.contrib.auth import get_user_model
 from django.test import Client
 from django.utils import timezone
-from core.models import PartidoVIP, UserAccess, VotoPartidoVIP, JornadaRegistro
+from core.models import PartidoVIP, UserAccess, VotoPartidoVIP, JornadaRegistro, CorreoPenalizacionVIP
 
 call_command('migrate', verbosity=0)
 admin = get_user_model().objects.create_user('preview_admin')
@@ -27,6 +27,13 @@ match = PartidoVIP.objects.create(titulo='Derbi madrileño · Ejemplo de prueba'
 roster = {'Primera División':[f'Manager {i}' for i in range(80)]}
 VotoPartidoVIP.objects.bulk_create([VotoPartidoVIP(partido=match, division='Primera División',
     manager=f'Manager {i}', posicionamiento=('local','visitante','ninguno')[i%3], pronostico_goles='3+') for i in range(73)])
+for index, vote in enumerate(match.votos.order_by('pk')[:4]):
+    if index % 2 == 0:
+        vote.penalizaciones_objetivo = {'Manager 79': 50}
+        vote.save(update_fields=['penalizaciones_objetivo'])
+    if index:
+        CorreoPenalizacionVIP.objects.create(voto=vote, email=f'ejemplo{index}@example.com',
+            estado='entregado' if index == 3 else 'enviado')
 JornadaRegistro.objects.create(user_access=access, season=2026, jornada=7, division='Primera División',
     cerrada=True, datos={f'Manager {i}':{'app':str(50+i%3*5)} for i in range(80)})
 client = Client()
