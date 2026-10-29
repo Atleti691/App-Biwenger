@@ -1,0 +1,10 @@
+{% if row.app_account %}
+{% if row.app_account.access_expires_at %}
+<strong class="{% if row.access_expired %}missing{% endif %}">{% if row.access_expired %}⛔ Acceso caducado{% else %}⏳ Acceso temporal{% endif %}</strong><br>
+<small>{% if row.access_expired %}Caducó{% else %}Caduca{% endif %}: {{ row.app_account.access_expires_at|date:"d/m/Y H:i" }} (hora peninsular)</small>
+{% if row.app_account.role == 'viewer' and row.app_account.user.is_active %}<form method="post" style="margin-top:8px" onsubmit="return confirm('¿Dejar el acceso de {{ row.app_account.user.username|escapejs }} sin fecha de caducidad? No cambiará su contraseña ni sus permisos.')">{% csrf_token %}
+<input type="hidden" name="action" value="clear_access_expiry"><input type="hidden" name="account_id" value="{{ row.app_account.pk }}">
+<button type="submit" style="padding:7px 10px;background:#087d89;color:#fff;border:0;border-radius:7px">🔓 Quitar caducidad</button>
+</form>{% endif %}
+{% else %}<span class="done">✓ Sin caducidad</span>{% endif %}
+{% else %}—{% endif %}

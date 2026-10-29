@@ -540,7 +540,25 @@ def communications(request):
     restore_all_fixed_staff_access()
     message = ''
     access_action_result = request.session.pop('access_action_result', None)
-    if request.method == 'POST' and request.POST.get('action') == 'reset_viewer_access':
+    if request.method == 'POST' and request.POST.get('action') == 'clear_access_expiry':
+        with transaction.atomic():
+            account = get_object_or_404(UserAccess.objects.select_for_update().select_related('user'),
+                pk=request.POST.get('account_id'))
+            if account.role != 'viewer' or account.user.username.casefold() in {name.casefold() for name in EDIT_DIVISIONS}:
+                message = 'No se ha modificado esta cuenta: el botón está reservado a usuarios de solo consulta.'
+            elif not account.user.is_active:
+                message = 'La cuenta está desactivada. No se ha reactivado ni cambiado su caducidad.'
+            elif account.access_expires_at:
+                previous = account.access_expires_at.isoformat()
+                account.access_expires_at = None
+                account.save(update_fields=['access_expires_at'])
+                CambioRegistro.objects.create(usuario=request.user, jornada=0, accion='quitar caducidad de acceso',
+                    detalle={'usuario': account.user.username, 'caducidad_anterior': previous,
+                             'caducidad_nueva': None, 'perfil_y_contrasena_conservados': True})
+                message = f'Acceso de {account.user.username} sin caducidad. Se conservan su contraseña y su perfil de solo consulta.'
+            else:
+                message = f'{account.user.username} ya tiene acceso sin caducidad.'
+    elif request.method == 'POST' and request.POST.get('action') == 'reset_viewer_access':
         contact = get_object_or_404(ContactoManager, pk=request.POST.get('contact_id'))
         user = manager_account(contact.manager)
         if not user:
@@ -688,6 +706,9 @@ def communications(request):
     if legacy_account:
         app_accounts.setdefault('donatelo', legacy_account)
     rows = [{'division': division, 'manager': manager, 'contact': contacts.get((division, manager)), 'app_account': app_accounts.get(manager.casefold())} for division, managers in active_league_managers().items() for manager in managers]
+    for row in rows:
+        account = row['app_account']
+        row['access_expired'] = bool(account and account.access_expires_at and account.access_expires_at <= timezone.now())
     completed = sum(1 for row in rows if row['contact'] and row['contact'].email.strip())
     total = len(rows)
     completed_percentage = round(completed * 100 / total) if total else 0
@@ -1404,6 +1425,13 @@ def statistics_api(request, season, jornada):
 class AppLoginView(LoginView):
     authentication_form = LoginForm
     template_name = 'login.html'
+
+    def form_valid(self, form):
+        account = UserAccess.objects.filter(user=form.get_user()).first()
+        if account and account.access_expires_at and account.access_expires_at <= timezone.now():
+            form.add_error(None, 'Tu acceso ha caducado. No es un problema de contraseña. Contacta con el administrador de la liga para renovar el acceso; no necesitas enviar tu contraseña.')
+            return self.form_invalid(form)
+        return super().form_valid(form)
 
     def get_success_url(self):
         access, _ = UserAccess.objects.get_or_create(user=self.request.user)
