@@ -24,6 +24,9 @@ match = PartidoVIP.objects.create(titulo='Derbi madrileño · Ejemplo de prueba'
     equipo_local='Atlético de Madrid', equipo_visitante='Real Madrid',
     fecha_cierre=timezone.now()-timedelta(days=2), cerrado=True, goles_reales=3,
     resultado='2-1', goleadores='Datos ficticios para revisar el diseño')
+PartidoVIP.objects.create(titulo='Lucha por el liderato · Ejemplo', jornada=12,
+    equipo_local='Atlético de Madrid', equipo_visitante='F. C. Barcelona',
+    fecha_cierre=timezone.now()+timedelta(days=2))
 roster = {'Primera División':[f'Manager {i}' for i in range(80)]}
 VotoPartidoVIP.objects.bulk_create([VotoPartidoVIP(partido=match, division='Primera División',
     manager=f'Manager {i}', posicionamiento=('local','visitante','ninguno')[i%3], pronostico_goles='3+') for i in range(73)])

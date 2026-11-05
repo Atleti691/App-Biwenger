@@ -193,6 +193,28 @@ class VIPNavigationTests(TestCase):
         self.assertNotContains(response, 'Ver formulario de votación')
         self.assertNotContains(response, 'Abrir votación')
 
+    def test_consultation_shows_vote_and_deadline_inside_closed_card_header_without_sharing(self):
+        self.login('viewer')
+        response = self.client.get(reverse('vip_matches'))
+        html = response.content.decode()
+        header = html.split('<summary class="match-summary">', 1)[1].split('</summary>', 1)[0]
+        self.assertIn('Votación hasta', header)
+        self.assertIn('>Votar</a>', header)
+        self.assertNotIn('Compartir enlace por WhatsApp', html)
+        self.assertNotIn('https://wa.me/', html)
+        self.match.cerrado = True
+        self.match.save()
+        response = self.client.get(reverse('vip_matches'))
+        header = response.content.decode().split('<summary class="match-summary">', 1)[1].split('</summary>', 1)[0]
+        self.assertIn('Votación cerrada', header)
+        self.assertNotIn('>Votar</a>', header)
+        self.match.cerrado = False
+        self.match.save()
+        self.login('admin')
+        response = self.client.get(reverse('vip_management'))
+        self.assertContains(response, 'Compartir enlace por WhatsApp')
+        self.assertContains(response, 'Ver formulario de votación</a>')
+
     def test_closed_position_balloons_list_managers_by_division_and_choice(self):
         self.match.fecha_cierre = timezone.now() - timedelta(minutes=1)
         self.match.save()

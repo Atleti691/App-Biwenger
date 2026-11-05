@@ -16,8 +16,9 @@
 
 <style>.vip-participation{margin:12px auto 4px;max-width:290px;min-width:130px;text-align:left}.vip-participation-label{display:flex;justify-content:space-between;gap:8px;font-size:11px;font-weight:400;color:#563a2c;margin-bottom:5px}.vip-participation-label strong{font-size:12px!important;color:#14683d}.vip-participation-track{height:10px;border-radius:10px;overflow:hidden;background:#eadfd4}.vip-participation-fill{height:100%;border-radius:10px;background:linear-gradient(90deg,#eea33a,#2baf76)}@media(max-width:540px){.vip-participation{min-width:0}.vip-participation-label{font-size:10px;flex-wrap:wrap}}</style>
 <style>.votacion-finalizada button[value="emergency_code"]{display:none!important}.collaborator-view .emergency-list form{display:none!important}</style>
+<style>.vip-consultation .match-summary{grid-template-columns:140px minmax(0,1fr) 140px;gap:14px;padding:14px;min-height:165px}.vip-consultation .club{font-size:15px}.vip-consultation .club img{width:44px;height:44px;margin:0 auto 6px}.vip-consultation .score{min-width:0}.vip-consultation .score small{overflow-wrap:anywhere}.vip-consultation-actions{margin-top:8px}.vip-voting-deadline{font-size:12px;line-height:1.5;color:#654a35}.vip-voting-deadline strong{font-size:12px!important;color:#654a35!important}.vip-vote-visible{display:inline-block;margin-top:7px;min-width:100px;text-align:center}.vip-consultation .vip-participation{margin-top:8px}@media(max-width:620px){.vip-consultation .match-summary{grid-template-columns:72px minmax(0,1fr) 72px;gap:7px;padding:12px 8px}.vip-consultation .club{font-size:12px;overflow-wrap:anywhere}.vip-consultation .club img{width:36px;height:36px}.vip-consultation .score strong{font-size:17px}.vip-voting-deadline{font-size:11px}}</style>
 </head>
-<body class="">
+<body class="vip-consultation">
 <main>
 <header class="hero">
 <a href="/" title="Menú principal" aria-label="Ir al menú principal">🏠</a>
@@ -31,14 +32,18 @@
 <section class="card">
 <h2>Partidos</h2>
 <div class="grid matches-list"><article class="vip-match-card"><details class="match-toggle votacion-finalizada">
-<summary class="match-summary"><div class="club">Atlético de Madrid</div><div class="score"><small>Jornada 7</small><br><span>Derbi madrileño · Ejemplo de prueba</span><br><strong>Finalizado</strong><br><b>Resultado: 2-1</b><br><small>⚽ Datos ficticios para revisar el diseño</small><br><small>pulsar para desplegar</small><div class="vip-participation" aria-label="Participación de Derbi madrileño · Ejemplo de prueba">
+<summary class="match-summary"><div class="club">Atlético de Madrid</div><div class="score"><small>Jornada 7</small><br><span>Derbi madrileño · Ejemplo de prueba</span><br><strong>Finalizado</strong><br><b>Resultado: 2-1</b><br><small>⚽ Datos ficticios para revisar el diseño</small><div class="vip-consultation-actions">
+<div class="vip-voting-deadline">Votación cerrada: <strong>03/11/2026 10:08</strong></div>
+
+</div>
+<br><small>pulsar para desplegar</small><div class="vip-participation" aria-label="Participación de Derbi madrileño · Ejemplo de prueba">
 <div class="vip-participation-label"><span>73 de 80 han votado</span><strong>91%</strong></div>
 <div class="vip-participation-track" role="progressbar" aria-label="Porcentaje de participación" aria-valuemin="0" aria-valuemax="100" aria-valuenow="91"><div class="vip-participation-fill" style="width:91%"></div></div>
 </div>
 </div><div class="club">Real Madrid</div></summary><div class="match-body">
 <p>
-<strong>73</strong> votos · Cierre: 26/10/2026 20:25</p>
-<p class="share">http://testserver/partidos-vip/votar/1/</p>
+</p>
+
 <div class="actions">
 </div><p>
 <strong>Finalizado:</strong> 3 goles totales. El posicionamiento se calcula de forma independiente en cada división.</p>
@@ -262,6 +267,126 @@
 <ul><li>Nadie eligió esta opción.</li></ul>
 </div>
 </details>
+
+</div>
+<h4>Pronóstico de goles</h4><div class="vip-result-bars vip-result-goals"><div class="vip-result-bar"><span>0 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>1 gol</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>2 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>3 o más</span><div><i style="width:0%"></i></div><b>0</b></div></div>
+<h4>Penalizaciones recibidas</h4><p class="vip-result-muted">Todavía no se han repartido puntos.</p>
+
+</article></div>
+</div>
+</details>
+</article><article class="vip-match-card"><details class="match-toggle">
+<summary class="match-summary"><div class="club">Atlético de Madrid</div><div class="score"><small>Jornada 12</small><br><span>Lucha por el liderato · Ejemplo</span><br><strong>VS</strong><div class="vip-consultation-actions">
+<div class="vip-voting-deadline">Votación hasta: <strong>07/11/2026 10:08</strong></div>
+<a class="button vip-vote-visible" href="http://testserver/partidos-vip/votar/2/" onclick="event.stopPropagation()">Votar</a>
+</div>
+<br><small>pulsar para desplegar</small><div class="vip-participation" aria-label="Participación de Lucha por el liderato · Ejemplo">
+<div class="vip-participation-label"><span>0 de 80 han votado</span><strong>0%</strong></div>
+<div class="vip-participation-track" role="progressbar" aria-label="Porcentaje de participación" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="vip-participation-fill" style="width:0%"></div></div>
+</div>
+</div><div class="club">F. C. Barcelona</div></summary><div class="match-body">
+<p>
+</p>
+
+<div class="actions">
+</div></div></details><details class="vip-results" id="vip-results-2">
+<summary>📊 Resultados del partido VIP</summary>
+<div class="vip-results-content"><div class="vip-results-divisions">
+<article class="vip-result-division"><h3>Primera División</h3>
+<strong>0 de 80 votos · 0%</strong>
+<div class="vip-participation-track" role="progressbar" aria-label="Participación de Primera División" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="vip-participation-fill" style="width:0%"></div></div>
+<p class="vip-result-muted">⏳ Pendiente de finalizar el partido y cerrar la jornada de esta división para calcular las medias.</p>
+<h4>Posicionamiento</h4><div class="vip-result-bars">
+
+<div class="vip-result-bar"><span>Atlético de Madrid</span><div><i style="width:0%"></i></div><b>0</b></div>
+
+
+
+<div class="vip-result-bar"><span>F. C. Barcelona</span><div><i style="width:0%"></i></div><b>0</b></div>
+
+
+
+<div class="vip-result-bar"><span>Ninguno</span><div><i style="width:0%"></i></div><b>0</b></div>
+
+</div>
+<h4>Pronóstico de goles</h4><div class="vip-result-bars vip-result-goals"><div class="vip-result-bar"><span>0 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>1 gol</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>2 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>3 o más</span><div><i style="width:0%"></i></div><b>0</b></div></div>
+<h4>Penalizaciones recibidas</h4><p class="vip-result-muted">Todavía no se han repartido puntos.</p>
+
+</article><article class="vip-result-division"><h3>Segunda División</h3>
+<strong>0 de 0 votos · 0%</strong>
+<div class="vip-participation-track" role="progressbar" aria-label="Participación de Segunda División" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="vip-participation-fill" style="width:0%"></div></div>
+<p class="vip-result-muted">⏳ Pendiente de finalizar el partido y cerrar la jornada de esta división para calcular las medias.</p>
+<h4>Posicionamiento</h4><div class="vip-result-bars">
+
+<div class="vip-result-bar"><span>Atlético de Madrid</span><div><i style="width:0%"></i></div><b>0</b></div>
+
+
+
+<div class="vip-result-bar"><span>F. C. Barcelona</span><div><i style="width:0%"></i></div><b>0</b></div>
+
+
+
+<div class="vip-result-bar"><span>Ninguno</span><div><i style="width:0%"></i></div><b>0</b></div>
+
+</div>
+<h4>Pronóstico de goles</h4><div class="vip-result-bars vip-result-goals"><div class="vip-result-bar"><span>0 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>1 gol</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>2 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>3 o más</span><div><i style="width:0%"></i></div><b>0</b></div></div>
+<h4>Penalizaciones recibidas</h4><p class="vip-result-muted">Todavía no se han repartido puntos.</p>
+
+</article><article class="vip-result-division"><h3>Primera RFEF</h3>
+<strong>0 de 0 votos · 0%</strong>
+<div class="vip-participation-track" role="progressbar" aria-label="Participación de Primera RFEF" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="vip-participation-fill" style="width:0%"></div></div>
+<p class="vip-result-muted">⏳ Pendiente de finalizar el partido y cerrar la jornada de esta división para calcular las medias.</p>
+<h4>Posicionamiento</h4><div class="vip-result-bars">
+
+<div class="vip-result-bar"><span>Atlético de Madrid</span><div><i style="width:0%"></i></div><b>0</b></div>
+
+
+
+<div class="vip-result-bar"><span>F. C. Barcelona</span><div><i style="width:0%"></i></div><b>0</b></div>
+
+
+
+<div class="vip-result-bar"><span>Ninguno</span><div><i style="width:0%"></i></div><b>0</b></div>
+
+</div>
+<h4>Pronóstico de goles</h4><div class="vip-result-bars vip-result-goals"><div class="vip-result-bar"><span>0 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>1 gol</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>2 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>3 o más</span><div><i style="width:0%"></i></div><b>0</b></div></div>
+<h4>Penalizaciones recibidas</h4><p class="vip-result-muted">Todavía no se han repartido puntos.</p>
+
+</article><article class="vip-result-division"><h3>Segunda RFEF</h3>
+<strong>0 de 0 votos · 0%</strong>
+<div class="vip-participation-track" role="progressbar" aria-label="Participación de Segunda RFEF" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="vip-participation-fill" style="width:0%"></div></div>
+<p class="vip-result-muted">⏳ Pendiente de finalizar el partido y cerrar la jornada de esta división para calcular las medias.</p>
+<h4>Posicionamiento</h4><div class="vip-result-bars">
+
+<div class="vip-result-bar"><span>Atlético de Madrid</span><div><i style="width:0%"></i></div><b>0</b></div>
+
+
+
+<div class="vip-result-bar"><span>F. C. Barcelona</span><div><i style="width:0%"></i></div><b>0</b></div>
+
+
+
+<div class="vip-result-bar"><span>Ninguno</span><div><i style="width:0%"></i></div><b>0</b></div>
+
+</div>
+<h4>Pronóstico de goles</h4><div class="vip-result-bars vip-result-goals"><div class="vip-result-bar"><span>0 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>1 gol</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>2 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>3 o más</span><div><i style="width:0%"></i></div><b>0</b></div></div>
+<h4>Penalizaciones recibidas</h4><p class="vip-result-muted">Todavía no se han repartido puntos.</p>
+
+</article><article class="vip-result-division"><h3>Liga Moeve</h3>
+<strong>0 de 0 votos · 0%</strong>
+<div class="vip-participation-track" role="progressbar" aria-label="Participación de Liga Moeve" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="vip-participation-fill" style="width:0%"></div></div>
+<p class="vip-result-muted">⏳ Pendiente de finalizar el partido y cerrar la jornada de esta división para calcular las medias.</p>
+<h4>Posicionamiento</h4><div class="vip-result-bars">
+
+<div class="vip-result-bar"><span>Atlético de Madrid</span><div><i style="width:0%"></i></div><b>0</b></div>
+
+
+
+<div class="vip-result-bar"><span>F. C. Barcelona</span><div><i style="width:0%"></i></div><b>0</b></div>
+
+
+
+<div class="vip-result-bar"><span>Ninguno</span><div><i style="width:0%"></i></div><b>0</b></div>
 
 </div>
 <h4>Pronóstico de goles</h4><div class="vip-result-bars vip-result-goals"><div class="vip-result-bar"><span>0 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>1 gol</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>2 goles</span><div><i style="width:0%"></i></div><b>0</b></div><div class="vip-result-bar"><span>3 o más</span><div><i style="width:0%"></i></div><b>0</b></div></div>

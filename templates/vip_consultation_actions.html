@@ -1,0 +1,4 @@
+{% if not management %}<div class="vip-consultation-actions">
+<div class="vip-voting-deadline">{% if partido.votacion_finalizada %}Votación cerrada{% else %}Votación hasta{% endif %}: <strong>{{ partido.fecha_cierre|date:"d/m/Y H:i" }}</strong></div>
+{% if not partido.votacion_finalizada %}<a class="button vip-vote-visible" href="{{ partido.vote_url }}" onclick="event.stopPropagation()">Votar</a>{% endif %}
+</div>{% endif %}

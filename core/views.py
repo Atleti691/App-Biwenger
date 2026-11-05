@@ -1270,7 +1270,8 @@ def tournaments(request):
 @login_required
 def statistics(request):
     divisions = ['Primera División', 'Segunda División', 'Primera RFEF', 'Segunda RFEF', 'Liga Moeve']
-    return render(request, 'statistics.html', {'divisions': divisions, 'jornadas': ordered_journeys()})
+    return render(request, 'statistics.html', {'divisions': divisions, 'jornadas': ordered_journeys(),
+        'selected_division': request.GET.get('division', '')})
 
 
 @login_required
@@ -1367,18 +1368,22 @@ def vip_statistics(request):
 
 @login_required
 def statistics_api(request, season, jornada):
+    try:
+        through = int(request.GET.get('through', '0'))
+    except ValueError:
+        through = 0
+    return JsonResponse(statistics_data(season, jornada, request.GET.get('division', ''),
+        request.GET.get('mode', 'round'), through))
+
+
+def statistics_data(season, jornada, division, mode='round', through=0):
+    """Shared calculation for the web standings and the division's email image."""
     from .cup import cup_awards
     copa_awards = cup_awards(season)
-    division = request.GET.get('division', '')
-    mode = request.GET.get('mode', 'round')
     queryset = JornadaRegistro.objects.filter(season=season, division=division)
     if mode != 'general':
         queryset = queryset.filter(jornada=jornada)
     else:
-        try:
-            through = int(request.GET.get('through', '0'))
-        except ValueError:
-            through = 0
         if through > 0:
             postponed = [100 + number for number in (1, 6) if number <= through]
             queryset = queryset.filter(Q(jornada__lte=through) | Q(jornada__in=postponed))
@@ -1419,7 +1424,7 @@ def statistics_api(request, season, jornada):
                     link['count'] += 1
                     link['value'] += value
     rows = list(totals.values())
-    return JsonResponse({'rows': rows, 'clause_network': list(clause_links.values()), 'closed': bool(records and all(record.cerrada for record in records)), 'journeys': len(records)})
+    return {'rows': rows, 'clause_network': list(clause_links.values()), 'closed': bool(records and all(record.cerrada for record in records)), 'journeys': len(records)}
 
 
 class AppLoginView(LoginView):
@@ -1690,12 +1695,7 @@ def jornada_api(request, season, jornada):
         CambioRegistro.objects.create(usuario=request.user, division=division, season=season, jornada=jornada,
                                       accion='editar cláusulas' if clause_update is not None else 'guardar jornada', detalle=detail)
         if registro.cerrada and not was_closed:
-            recipients = list(ContactoManager.objects.exclude(email='').values_list('email', flat=True).distinct())
-            if recipients:
-                EmailMessage(
-                    subject=f'Liga Amigos XI — {journey_label(jornada)} cerrada',
-                    body=f'La {journey_label(jornada).lower()} de {division} ha sido cerrada. Ya puedes consultar los resultados y las clasificaciones en la aplicación.',
-                    bcc=recipients,
-                ).send(fail_silently=True)
+            from .journey_emails import send_journey_standings
+            transaction.on_commit(lambda: send_journey_standings(registro.pk, request.user.pk))
         return JsonResponse({'ok': True, 'cerrada': registro.cerrada})
     return JsonResponse({'error': 'Método no permitido'}, status=405)
