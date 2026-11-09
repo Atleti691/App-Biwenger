@@ -37,11 +37,11 @@ class JourneyEmailTests(TestCase):
             self.addCleanup(patcher.stop)
 
     def test_division_only_private_recipients_png_and_direct_link(self):
-        self.assertEqual(send_journey_standings(self.record.pk, self.admin.pk), 1)
-        self.assertEqual(len(mail.outbox), 1)
-        message = mail.outbox[0]
-        self.assertEqual(message.bcc, ['one@example.com'])
-        self.assertEqual(message.to, [])
+        self.assertEqual(send_journey_standings(self.record.pk, self.admin.pk), 2)
+        self.assertEqual(len(mail.outbox), 2)
+        message = next(msg for msg in mail.outbox if msg.body.startswith('Hola, Uno.'))
+        self.assertEqual(message.bcc, [])
+        self.assertEqual(message.to, ['ONE@example.com'])
         self.assertNotIn('cerrada', message.subject.lower())
         self.assertIn('Primera División', message.subject)
         self.assertNotIn('Otro', message.body)
@@ -86,11 +86,36 @@ class JourneyEmailTests(TestCase):
             response = self.client.post(url, data=json.dumps({'cerrada': True}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(callbacks), 1)
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(len(mail.outbox), 2)
         with self.captureOnCommitCallbacks(execute=True) as callbacks:
             self.client.post(url, data=json.dumps({'cerrada': True}), content_type='application/json')
         self.assertEqual(len(callbacks), 0)
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_private_clause_amount_and_legacy_total(self):
+        self.record.datos['Uno'].update(clauses=[{'to': 'Dos', 'value': 1000000},
+            {'to': 'Dos', 'value': 2000000}, {'to': 'Dos', 'value': 3000000}])
+        self.record.datos['Dos'].update(money='42.000 €', clauses=[])
+        self.record.save()
+        send_journey_standings(self.record.pk, self.admin.pk)
+        first = next(msg for msg in mail.outbox if msg.body.startswith('Hola, Uno.'))
+        second = next(msg for msg in mail.outbox if msg.body.startswith('Hola, Dos.'))
+        self.assertIn('900.000 €', first.body)
+        self.assertIn('3 cláusula', first.body)
+        self.assertIn('900.000 €', first.alternatives[0][0])
+        self.assertNotIn('42.000 €', first.body)
+        self.assertIn('42.000 €', second.body)
+        self.assertNotIn('900.000 €', second.body)
+        self.assertNotIn('Has realizado', second.body)
+
+    def test_repeat_close_does_not_duplicate_unchanged_email(self):
+        self.assertEqual(send_journey_standings(self.record.pk, self.admin.pk), 2)
+        self.assertEqual(send_journey_standings(self.record.pk, self.admin.pk), 0)
+        self.assertEqual(len(mail.outbox), 2)
+        self.record.datos['Uno']['money'] = '1.000 €'
+        self.record.save()
+        self.assertEqual(send_journey_standings(self.record.pk, self.admin.pk), 1)
+        self.assertIn('1.000 €', mail.outbox[-1].body)
 
     def test_mail_failure_does_not_undo_saved_close(self):
         self.record.cerrada = False

@@ -4,6 +4,8 @@ from email.mime.image import MIMEImage
 from pathlib import Path
 from urllib.parse import urlencode
 import logging
+import hashlib
+import json
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
@@ -14,6 +16,7 @@ from PIL import Image, ImageDraw, ImageFont
 import reportlab
 
 from .journeys import journey_label
+from .clause_data import normalize_clauses, clause_totals
 from .models import CambioRegistro, ContactoManager, JornadaRegistro
 
 logger = logging.getLogger(__name__)
@@ -65,7 +68,7 @@ def standings_png(division, journey, rows, round_totals):
 
 
 def send_journey_standings(record_id, actor_id):
-    """One private BCC email for the closed division, never a league-wide mailing.
+    """Send each manager a private, personalized email for the closed division.
 
     Called only after commit. A mail/image failure never reopens or rolls back data.
     """
@@ -76,8 +79,8 @@ def send_journey_standings(record_id, actor_id):
     try:
         active = set(active_league_managers().get(record.division, []))
         contacts = ContactoManager.objects.filter(division=record.division).exclude(email='')
-        recipients = sorted({contact.email.strip().casefold() for contact in contacts
-                             if contact.manager in active and contact.email.strip()})
+        recipients = [contact for contact in contacts
+                      if contact.manager in active and contact.email.strip()]
         if not recipients:
             return 0
         rows = sorted(statistics_data(record.season, record.jornada, record.division, 'general')['rows'],
@@ -89,26 +92,65 @@ def send_journey_standings(record_id, actor_id):
         image = standings_png(record.division, record.jornada, rows, round_totals)
         stats_url = settings.LEAGUE_APP_URL + '/estadisticas/?' + urlencode({'division': record.division})
         cid = f'clasificacion-{record.pk}@liga-amigos-xi'
-        context = {'division': record.division, 'journey': journey_label(record.jornada),
-                   'rows': rows, 'image_cid': cid, 'stats_url': stats_url,
-                   'app_url': settings.LEAGUE_APP_URL + '/login/'}
-        text = (f'Hola, managers de {record.division}.\n\nYa está actualizada vuestra clasificación '
-                f'tras la {journey_label(record.jornada).lower()}.\n\n'
-                + '\n'.join(f'{index}. {row["manager"]}: {row["total"]} puntos' for index, row in enumerate(rows, 1))
-                + f'\n\nVer mi clasificación: {stats_url}\n\nLa imagen completa va incluida en este correo.')
-        message = EmailMultiAlternatives(subject=f'Tu clasificación actualizada · {record.division} · {journey_label(record.jornada)}',
-            body=text, bcc=recipients)
-        message.mixed_subtype = 'related'
-        message.attach_alternative(render_to_string('journey_standings_email.html', context), 'text/html')
-        attachment = MIMEImage(image, _subtype='png')
-        attachment.add_header('Content-ID', f'<{cid}>')
-        attachment.add_header('Content-Disposition', 'inline',
-            filename=f'clasificacion-{slugify(record.division)}-{record.jornada}.png')
-        message.attach(attachment)
-        sent = message.send(fail_silently=False) or 0
+        sent = 0
+        failed = 0
+        previous = CambioRegistro.objects.filter(division=record.division, season=record.season,
+            jornada=record.jornada, accion='enviar clasificación individual').values_list('detalle', flat=True)
+        already_sent = {item.get('huella') for item in previous if item.get('envio_aceptado')}
+        for contact in recipients:
+            row = (record.datos or {}).get(contact.manager, {})
+            try:
+                clauses = normalize_clauses(row.get('clauses', []))
+            except (ValueError, AttributeError):
+                clauses = []
+            # Legacy rounds may retain the total but have lost individual details.
+            totals = clause_totals(clauses) if clauses else None
+            money = totals['money'] if totals else str(row.get('money') or '').strip()
+            has_money = any(char in '123456789' for char in money)
+            context = {'division': record.division, 'journey': journey_label(record.jornada),
+                       'rows': rows, 'image_cid': cid, 'stats_url': stats_url,
+                       'app_url': settings.LEAGUE_APP_URL + '/login/', 'manager': contact.manager,
+                       'clause_money': money if has_money else '', 'clause_count': len(clauses) if clauses else None}
+            fingerprint = hashlib.sha256(json.dumps({'manager': contact.manager, 'email': contact.email.strip().casefold(),
+                'rows': [(standing['manager'], standing['total']) for standing in rows],
+                'round_totals': round_totals, 'clause_money': context['clause_money'],
+                'clause_count': context['clause_count']}, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()
+            if fingerprint in already_sent:
+                continue
+            text = (f'Hola, {contact.manager}.\n\nYa está actualizada la clasificación de {record.division} '
+                    f'tras la {journey_label(record.jornada).lower()}.\n\n')
+            if has_money:
+                if clauses:
+                    text += f'Has realizado {len(clauses)} cláusula(s).\n'
+                text += f'Penalización en dinero por cláusulas: {money}.\n\n'
+            text += ('\n'.join(f'{index}. {standing["manager"]}: {standing["total"]} puntos' for index, standing in enumerate(rows, 1))
+                     + f'\n\nVer mi clasificación: {stats_url}\n\nLa imagen completa va incluida en este correo.')
+            message = EmailMultiAlternatives(subject=f'Tu clasificación actualizada · {record.division} · {journey_label(record.jornada)}',
+                body=text, to=[contact.email.strip()])
+            message.mixed_subtype = 'related'
+            message.attach_alternative(render_to_string('journey_standings_email.html', context), 'text/html')
+            attachment = MIMEImage(image, _subtype='png')
+            attachment.add_header('Content-ID', f'<{cid}>')
+            attachment.add_header('Content-Disposition', 'inline',
+                filename=f'clasificacion-{slugify(record.division)}-{record.jornada}.png')
+            message.attach(attachment)
+            try:
+                result = message.send(fail_silently=False) or 0
+                sent += result
+                if not result:
+                    failed += 1
+                else:
+                    CambioRegistro.objects.create(usuario_id=actor_id, division=record.division,
+                        season=record.season, jornada=record.jornada, accion='enviar clasificación individual',
+                        detalle={'manager': contact.manager, 'huella': fingerprint, 'envio_aceptado': True})
+                    already_sent.add(fingerprint)
+            except Exception:
+                failed += 1
+                logger.exception('No se pudo enviar la clasificación a %s en registro %s', contact.manager, record_id)
         CambioRegistro.objects.create(usuario_id=actor_id, division=record.division,
             season=record.season, jornada=record.jornada, accion='enviar clasificación de división',
             detalle={'envio_aceptado': bool(sent), 'destinatarios': len(recipients),
+                     'envios_aceptados': sent, 'envios_fallidos': failed,
                      'imagen_incluida': True, 'sin_confirmacion_de_entrega_individual': True})
         return sent
     except Exception:
