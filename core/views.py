@@ -769,6 +769,25 @@ def vip_matches(request, management=False):
                     CambioRegistro.objects.create(usuario=request.user, jornada=partido.jornada or 0,
                         accion='editar escudos VIP', detalle={'partido': partido.pk, **badges})
                 message = 'Escudos del partido VIP actualizados. Los votos y resultados no han cambiado.'
+        elif action == 'correct_vip_goals' and is_admin and request.user.username.casefold() == 'atleti69':
+            partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'), cerrado=True)
+            voto = get_object_or_404(VotoPartidoVIP, partido=partido, pk=request.POST.get('vote_id'))
+            nuevo = request.POST.get('pronostico_goles', '')
+            if nuevo not in dict(VotoPartidoVIP.GOAL_CHOICES):
+                message = 'Selecciona un pronóstico de goles válido.'
+            elif voto.objetivo_penalizacion or voto.penalizaciones_objetivo:
+                message = 'Este voto ya tiene un reparto de puntos y no se puede corregir.'
+            elif nuevo == voto.pronostico_goles:
+                message = 'El pronóstico ya estaba registrado con ese valor.'
+            else:
+                with transaction.atomic():
+                    anterior = voto.pronostico_goles
+                    voto.pronostico_goles = nuevo
+                    voto.save(update_fields=['pronostico_goles', 'actualizado'])
+                    CambioRegistro.objects.create(usuario=request.user, division=voto.division,
+                        jornada=partido.jornada or 0, accion='corregir goles voto VIP',
+                        detalle={'partido': partido.pk, 'manager': voto.manager, 'anterior': anterior, 'nuevo': nuevo})
+                message = f'Pronóstico de {voto.manager} corregido. Su posicionamiento no ha cambiado.'
         elif action == 'manual_vote' and is_admin:
             partido = get_object_or_404(PartidoVIP, pk=request.POST.get('partido_id'))
             division = request.POST.get('division', '')

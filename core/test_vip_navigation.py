@@ -36,6 +36,33 @@ class VIPNavigationTests(TestCase):
                 'escudo_local':'https://example.com/local.png', 'escudo_visitante':'https://example.com/visitor.png',
                 'fecha_cierre':'2027-01-01T20:00', 'fecha_limite_penalizaciones':'2027-01-05T20:00'}
 
+    def test_only_superadmin_can_correct_closed_goals_without_changing_position(self):
+        self.match.cerrado = True
+        self.match.goles_reales = 3
+        self.match.save()
+        vote = VotoPartidoVIP.objects.create(partido=self.match, division='Segunda División',
+            manager='Gabrielix de Asturin', posicionamiento='ninguno', pronostico_goles='0')
+        payload = {'action': 'correct_vip_goals', 'partido_id': self.match.pk,
+                   'vote_id': vote.pk, 'pronostico_goles': '3+'}
+        self.login('admin')
+        self.client.post(reverse('vip_management'), payload)
+        vote.refresh_from_db()
+        self.assertEqual(vote.pronostico_goles, '0')
+        superuser = get_user_model().objects.create_user('Atleti69')
+        UserAccess.objects.create(user=superuser, role='admin', must_change_password=False)
+        self.client.force_login(superuser)
+        response = self.client.post(reverse('vip_management'), payload)
+        self.assertContains(response, 'Pronóstico de Gabrielix de Asturin corregido')
+        vote.refresh_from_db()
+        self.assertEqual(vote.pronostico_goles, '3+')
+        self.assertEqual(vote.posicionamiento, 'ninguno')
+        vote.penalizaciones_objetivo = {'Otro': 50}
+        vote.save()
+        payload['pronostico_goles'] = '0'
+        self.assertContains(self.client.post(reverse('vip_management'), payload), 'ya tiene un reparto')
+        vote.refresh_from_db()
+        self.assertEqual(vote.pronostico_goles, '3+')
+
     def test_admins_have_management_card_only_in_management_menu(self):
         for role in ('admin','collaborator'):
             with self.subTest(role=role):
