@@ -4,7 +4,7 @@
   <div class="comeback-outcomes">
   {% for outcome in match.comeback.outcomes %}
     <button type="button" class="comeback-button comeback-{{ outcome.kind }}" aria-label="{{ outcome.name }}: {{ outcome.percent }} por ciento. Ver jornadas" aria-expanded="false">
-      <span class="comeback-name">{{ outcome.name }} <strong>{{ outcome.percent }} %</strong></span>
+      <span class="comeback-name"><strong>{{ outcome.percent }} %</strong></span>
       <span class="comeback-details" hidden>
         <strong>{{ outcome.name }} · {{ outcome.percent }} %</strong>
         <span>{{ outcome.history|length }} de {{ match.comeback.count }} jornadas anteriores.</span>
