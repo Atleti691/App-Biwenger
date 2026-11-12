@@ -1,0 +1,21 @@
+{% if match.comeback %}
+<div class="comeback" aria-label="Referencia histórica de la eliminatoria">
+  <div class="comeback-label">Referencia histórica · {{ match.comeback.count }} jornada{{ match.comeback.count|pluralize }}</div>
+  <div class="comeback-outcomes">
+  {% for outcome in match.comeback.outcomes %}
+    <button type="button" class="comeback-button comeback-{{ outcome.kind }}" aria-label="{{ outcome.name }}: {{ outcome.percent }} por ciento. Ver jornadas" aria-expanded="false">
+      <span class="comeback-name">{{ outcome.name }}</span><strong>{{ outcome.percent }} %</strong>
+      <span class="comeback-details" hidden>
+        <strong>{{ outcome.name }} · {{ outcome.percent }} %</strong>
+        <span>{{ outcome.history|length }} de {{ match.comeback.count }} jornadas anteriores.</span>
+        <span>Puntos APP: {{ match.comeback.first_name }} – {{ match.comeback.second_name }}</span>
+        {% for item in outcome.history %}<span><b>J{{ item.number }}</b>{% if item.parts %} (incluye aplazadas){% endif %}: {{ item.scores.0 }} – {{ item.scores.1 }} puntos APP</span>{% empty %}<span>Ninguna jornada de la muestra.</span>{% endfor %}
+        {% if outcome.kind == 'tie' %}<span>El empate se resolvería con los criterios de Copa.</span>{% endif %}
+        {% if match.comeback.partial %}<span>Hay jornadas con partes aplazadas aún sin datos completos.</span>{% endif %}
+        <span>Referencia histórica, no una predicción garantizada.</span>
+      </span>
+    </button>
+  {% endfor %}
+  </div>
+</div>
+{% endif %}

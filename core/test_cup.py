@@ -4,7 +4,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
 
-from .cup import ROUNDS, build_bracket, cup_awards, participants
+from .cup import ROUNDS, build_bracket, comeback_history, cup_awards, participants
 from .models import CopaReySorteo, JornadaRegistro, UserAccess
 
 
@@ -32,6 +32,23 @@ class BracketTests(SimpleTestCase):
         del self.records[('Test', 13)].datos['M0']['app']
         bracket = build_bracket(self.people, self.records, self.roster)
         self.assertIsNone(bracket[0]['matches'][0]['winner'])
+
+    def test_comeback_groups_history_and_combines_postponed_rounds(self):
+        pair = [{'manager': 'A', 'division': 'D'}, {'manager': 'B', 'division': 'D'}]
+        rows = [{'scores': [{'value': 61, 'closed': True}, {'value': None, 'closed': False}]},
+                {'scores': [{'value': 50, 'closed': True}, {'value': None, 'closed': False}]}]
+        def record(a, b, closed=True):
+            return SimpleNamespace(cerrada=closed, datos={'A': {'app': a}, 'B': {'app': b}})
+        records = {('D', 1): record(29, 49), ('D', 101): record(10, 4),
+                   ('D', 2): record(50, 10), ('D', 3): record(20, 31),
+                   ('D', 4): record('', 70)}
+        result = comeback_history(pair, rows, (12, 13), records)
+        self.assertEqual(result['count'], 3)
+        self.assertEqual([len(outcome['history']) for outcome in result['outcomes']], [1, 1, 1])
+        self.assertEqual([outcome['percent'] for outcome in result['outcomes']], [34, 33, 33])
+        self.assertEqual(result['outcomes'][2]['history'][0]['scores'], [39, 53])
+        rows[0]['scores'][1]['closed'] = True
+        self.assertIsNone(comeback_history(pair, rows, (12, 13), records))
 
     @patch('core.views.vip_adjustments_for_journey', return_value={})
     def test_general_position_breaks_app_tie(self, _):

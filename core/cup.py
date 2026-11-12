@@ -177,6 +177,57 @@ def qualification_outlook(records, roster):
     return result
 
 
+def comeback_history(pair, rows, journeys, records):
+    """Historical APP comparisons, counting postponed fragments in their base round."""
+    if len(journeys) != 2 or len(pair) != 2 or not all(pair):
+        return None
+    if not all(row['scores'][0]['closed'] for row in rows) or any(row['scores'][1]['closed'] for row in rows):
+        return None
+    first, second = pair
+    ida = [row['scores'][0]['value'] for row in rows]
+    categories = [[], [], []]
+    partial = []
+    postponed = {1: [(101, 2)], 6: [(106, 5), (206, 9)]}
+    def points(person, number):
+        record = records.get((person['division'], number))
+        if not record or not record.cerrada:
+            return None
+        value = record.datos.get(person['manager'], {}).get('app')
+        try:
+            return int(value) if value is not None and str(value).strip() else None
+        except (TypeError, ValueError):
+            return None
+    for number in range(1, journeys[0]):
+        values = [points(person, number) for person in pair]
+        if any(value is None for value in values):
+            continue
+        parts = []
+        for part, after in postponed.get(number, []):
+            if after >= journeys[0]:
+                continue
+            extra = [points(person, part) for person in pair]
+            if any(value is None for value in extra):
+                partial.append(number)
+                continue
+            values = [value + add for value, add in zip(values, extra)]
+            parts.append(part)
+        difference = ida[0] + values[0] - ida[1] - values[1]
+        category = 0 if difference > 0 else 1 if difference == 0 else 2
+        categories[category].append({'number': number, 'scores': values, 'parts': parts})
+    count = sum(len(items) for items in categories)
+    if not count:
+        return None
+    # Largest remainders ensure displayed percentages add up to 100.
+    percentages = [len(items) * 100 // count for items in categories]
+    for index in sorted(range(3), key=lambda i: -(len(categories[i]) * 100 % count))[:100 - sum(percentages)]:
+        percentages[index] += 1
+    return {'count': count, 'partial': sorted(set(partial)), 'gap': abs(ida[0] - ida[1]),
+            'first_name': first['manager'], 'second_name': second['manager'],
+            'outcomes': [{'name': first['manager'], 'kind': 'first', 'percent': percentages[0], 'history': categories[0]},
+                         {'name': 'Empate', 'kind': 'tie', 'percent': percentages[1], 'history': categories[1]},
+                         {'name': second['manager'], 'kind': 'second', 'percent': percentages[2], 'history': categories[2]}]}
+
+
 def build_bracket(people, records, roster):
     rounds = []
     current = people
@@ -215,7 +266,8 @@ def build_bracket(people, records, roster):
             for row in rows:
                 row['winner'] = bool(winner and row['person'] == winner)
                 row['prize'] = (50 if row['winner'] else 25) if winner and stage_index == 4 else 15 if row['winner'] else 0
-            matches.append({'number': index // 2 + 1, 'rows': rows, 'winner': winner, 'reason': reason, 'complete': complete})
+            matches.append({'number': index // 2 + 1, 'rows': rows, 'winner': winner, 'reason': reason, 'complete': complete,
+                            'comeback': comeback_history(pair, rows, journeys, records)})
             advancing.append(winner)
         rounds.append({'label': label, 'journeys': journeys, 'matches': matches})
         # Only previous-round prizes affect a later tie; a round never decides itself.
