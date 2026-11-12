@@ -1,10 +1,10 @@
 {% if match.comeback %}
 <div class="comeback" aria-label="Referencia histórica de la eliminatoria">
-  <div class="comeback-label">Referencia histórica · {{ match.comeback.count }} jornada{{ match.comeback.count|pluralize }}</div>
+  <div class="comeback-bar" aria-hidden="true">{% for outcome in match.comeback.outcomes %}<span class="comeback-segment comeback-segment-{{ outcome.kind }}" style="width:{{ outcome.percent }}%"></span>{% endfor %}</div>
   <div class="comeback-outcomes">
   {% for outcome in match.comeback.outcomes %}
     <button type="button" class="comeback-button comeback-{{ outcome.kind }}" aria-label="{{ outcome.name }}: {{ outcome.percent }} por ciento. Ver jornadas" aria-expanded="false">
-      <span class="comeback-name">{{ outcome.name }}</span><strong>{{ outcome.percent }} %</strong>
+      <span class="comeback-name">{{ outcome.name }} <strong>{{ outcome.percent }} %</strong></span>
       <span class="comeback-details" hidden>
         <strong>{{ outcome.name }} · {{ outcome.percent }} %</strong>
         <span>{{ outcome.history|length }} de {{ match.comeback.count }} jornadas anteriores.</span>
