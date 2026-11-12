@@ -47,3 +47,19 @@ class ManagerRetirementTests(TestCase):
         self.assertNotContains(response, 'Patontografos F.C')
         self.assertContains(response, 'Beagar13')
         self.assertNotIn(self.contact.id, [row['id'] for row in response.context['pending_accounts']])
+
+    def test_removal_of_empty_records_and_rejects_nonempty_history(self):
+        migration = import_module('core.migrations.0029_remove_patontografos')
+        schema = SimpleNamespace(connection=connection)
+        with self.assertRaises(RuntimeError):
+            migration.remove_nonparticipant(apps, schema)
+        self.assertTrue(ManagerLiga.objects.filter(pk=self.manager.pk).exists())
+        self.history.datos['Patontografos F.C']['app'] = '0'
+        self.history.datos['Beagar13'] = {'app': '42', 'clauses': []}
+        self.history.save()
+        migration.remove_nonparticipant(apps, schema)
+        self.history.refresh_from_db()
+        self.assertEqual(self.history.datos, {'Beagar13': {'app': '42', 'clauses': []}})
+        self.assertFalse(ManagerLiga.objects.filter(pk=self.manager.pk).exists())
+        self.assertFalse(ContactoManager.objects.filter(pk=self.contact.pk).exists())
+        self.assertTrue(ContactoManager.objects.filter(pk=self.other.pk).exists())
