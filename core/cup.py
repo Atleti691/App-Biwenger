@@ -266,7 +266,16 @@ def build_bracket(people, records, roster):
             for row in rows:
                 row['winner'] = bool(winner and row['person'] == winner)
                 row['prize'] = (50 if row['winner'] else 25) if winner and stage_index == 4 else 15 if row['winner'] else 0
+            target = None
+            if (len(journeys) == 2 and len(rows) == 2 and all(pair)
+                    and all(row['scores'][0]['closed'] for row in rows)
+                    and not any(row['scores'][1]['closed'] for row in rows)):
+                delta = rows[0]['scores'][0]['value'] - rows[1]['scores'][0]['value']
+                if delta:
+                    target = {'manager': pair[1 if delta > 0 else 0]['manager'], 'first': delta < 0,
+                              'gap': abs(delta), 'win': abs(delta) + 1}
             matches.append({'number': index // 2 + 1, 'rows': rows, 'winner': winner, 'reason': reason, 'complete': complete,
+                            'target': target,
                             'comeback': comeback_history(pair, rows, journeys, records)})
             advancing.append(winner)
         rounds.append({'label': label, 'journeys': journeys, 'matches': matches})

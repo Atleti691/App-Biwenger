@@ -33,6 +33,16 @@ class BracketTests(SimpleTestCase):
         bracket = build_bracket(self.people, self.records, self.roster)
         self.assertIsNone(bracket[0]['matches'][0]['winner'])
 
+    def test_target_needs_one_more_than_gap_and_no_closed_or_missing_legs(self):
+        self.records[('Test', 13)].cerrada = False
+        match = build_bracket(self.people, self.records, self.roster)[0]['matches'][0]
+        self.assertEqual(match['target'], {'manager': 'M1', 'first': False, 'gap': 1, 'win': 2})
+        self.records[('Test', 12)].datos['M0']['app'] = 90
+        match = build_bracket(self.people, self.records, self.roster)[0]['matches'][0]
+        self.assertEqual(match['target'], {'manager': 'M0', 'first': True, 'gap': 9, 'win': 10})
+        del self.records[('Test', 12)].datos['M0']['app']
+        self.assertIsNone(build_bracket(self.people, self.records, self.roster)[0]['matches'][0]['target'])
+
     def test_comeback_groups_history_and_combines_postponed_rounds(self):
         pair = [{'manager': 'A', 'division': 'D'}, {'manager': 'B', 'division': 'D'}]
         rows = [{'scores': [{'value': 61, 'closed': True}, {'value': None, 'closed': False}]},
