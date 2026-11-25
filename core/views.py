@@ -1405,6 +1405,8 @@ def statistics_data(season, jornada, division, mode='round', through=0):
     else:
         if through > 0:
             postponed = [100 + number for number in (1, 6) if number <= through]
+            if through >= 9:
+                postponed.append(206)
             queryset = queryset.filter(Q(jornada__lte=through) | Q(jornada__in=postponed))
     records, seen = [], set()
     for record in queryset.order_by('jornada', '-updated_at'):
@@ -1443,7 +1445,8 @@ def statistics_data(season, jornada, division, mode='round', through=0):
                     link['count'] += 1
                     link['value'] += value
     rows = list(totals.values())
-    return {'rows': rows, 'clause_network': list(clause_links.values()), 'closed': bool(records and all(record.cerrada for record in records)), 'journeys': len(records)}
+    cutoff_closed = any(record.jornada == through and record.cerrada for record in records) if through else False
+    return {'rows': rows, 'clause_network': list(clause_links.values()), 'closed': bool(records and all(record.cerrada for record in records)), 'journeys': len(records), 'cutoff_closed': cutoff_closed}
 
 
 class AppLoginView(LoginView):
@@ -1716,5 +1719,8 @@ def jornada_api(request, season, jornada):
         if registro.cerrada and not was_closed:
             from .journey_emails import send_journey_standings
             transaction.on_commit(lambda: send_journey_standings(registro.pk, request.user.pk))
+            if jornada in (13, 15, 17, 19):
+                from .cup import send_cup_advancement_emails
+                transaction.on_commit(lambda: send_cup_advancement_emails(season, jornada, request.user.pk))
         return JsonResponse({'ok': True, 'cerrada': registro.cerrada})
     return JsonResponse({'error': 'Método no permitido'}, status=405)

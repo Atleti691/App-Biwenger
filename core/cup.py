@@ -310,6 +310,55 @@ def cup_awards(season):
     return awards
 
 
+def send_cup_advancement_emails(season, journey, actor_id):
+    """Notify a winner only after both divisions have closed the deciding round."""
+    import logging
+    from django.conf import settings
+    from django.core.mail import EmailMultiAlternatives
+    from .models import ContactoManager
+    from .views import active_league_managers
+
+    if journey not in (13, 15, 17, 19):
+        return
+    draw = CopaReySorteo.objects.filter(season=season).first()
+    if not draw:
+        return
+    roster = active_league_managers(season)
+    for person in draw.participantes:
+        names = roster.setdefault(person['division'], [])
+        if person['manager'] not in names:
+            names.append(person['manager'])
+    rounds = build_bracket(draw.participantes, latest_records(season), roster)
+    for stage in rounds:
+        if stage['journeys'][-1] != journey:
+            continue
+        for match in stage['matches']:
+            winner = match['winner']
+            if not winner:
+                continue
+            manager, division = winner['manager'], winner['division']
+            previous = CambioRegistro.objects.filter(season=season, jornada=journey, division=division,
+                accion='felicitación Copa').values_list('detalle', flat=True)
+            if any(item.get('manager') == manager and item.get('envio_aceptado') for item in previous):
+                continue
+            contact = ContactoManager.objects.filter(division=division, manager=manager).first()
+            if not contact or not contact.email.strip():
+                continue
+            url = settings.LEAGUE_APP_URL + '/torneos/copa-del-rey/'
+            body = (f'¡Enhorabuena, {manager}!\n\nHas superado {stage["label"]} de la Copa del Rey '
+                    f'y sumas 15 puntos en la jornada {journey}.\n\n'
+                    f'Consulta el cuadro para ver tu próximo rival: {url}\n\n¡Mucha suerte en la siguiente ronda!')
+            try:
+                sent = EmailMultiAlternatives(subject='¡Has pasado de ronda en la Copa del Rey!',
+                    body=body, to=[contact.email.strip()]).send(fail_silently=False)
+                if sent:
+                    CambioRegistro.objects.create(usuario_id=actor_id, season=season, jornada=journey,
+                        division=division, accion='felicitación Copa',
+                        detalle={'manager': manager, 'ronda': stage['label'], 'envio_aceptado': True})
+            except Exception:
+                logging.getLogger(__name__).exception('No se pudo enviar la felicitación de Copa a %s', manager)
+
+
 @login_required
 def copa_rey(request):
     from .views import active_league_managers, restore_fixed_staff_access

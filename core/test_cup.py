@@ -2,10 +2,11 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
+from django.core import mail
 
-from .cup import ROUNDS, build_bracket, comeback_history, cup_awards, participants
-from .models import CopaReySorteo, JornadaRegistro, UserAccess
+from .cup import ROUNDS, build_bracket, comeback_history, cup_awards, participants, send_cup_advancement_emails
+from .models import CopaReySorteo, JornadaRegistro, UserAccess, ContactoManager
 
 
 class BracketTests(SimpleTestCase):
@@ -127,3 +128,31 @@ class CupIntegrationTests(TestCase):
             self.assertEqual(self.client.get('/api/jornada/2026/13/?division=Test').json()['cup_prizes']['M0'],15)
             JornadaRegistro.objects.filter(jornada=13).update(cerrada=False)
             self.assertEqual(cup_awards(2026),{})
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_winner_notified_once_when_both_divisions_close(self):
+        people = [{'manager': 'A', 'division': 'D1'}, {'manager': 'B', 'division': 'D2'}]
+        CopaReySorteo.objects.create(season=2026, participantes=people, creado_por=self.user)
+        ContactoManager.objects.create(division='D1', manager='A', email='a@example.com', provincia='')
+        for division, manager, score in [('D1', 'A', 60), ('D2', 'B', 30)]:
+            for journey in (12, 13):
+                JornadaRegistro.objects.create(user_access=self.access, division=division, season=2026,
+                    jornada=journey, cerrada=not (division == 'D2' and journey == 13), datos={manager: {'app': score}})
+        with patch('core.views.active_league_managers', return_value={'D1': ['A'], 'D2': ['B']}):
+            send_cup_advancement_emails(2026, 13, self.user.pk)
+            self.assertEqual(len(mail.outbox), 0)
+            JornadaRegistro.objects.filter(division='D2', jornada=13).update(cerrada=True)
+            send_cup_advancement_emails(2026, 13, self.user.pk)
+            send_cup_advancement_emails(2026, 13, self.user.pk)
+            self.assertEqual(len(mail.outbox), 1)
+            self.assertIn('15 puntos', mail.outbox[0].body)
+            self.assertIn('/torneos/copa-del-rey/', mail.outbox[0].body)
+
+    def test_qualification_cutoff_excludes_later_rounds_and_includes_6ap2(self):
+        for journey, score in [(19, 10), (20, 100), (206, 3)]:
+            JornadaRegistro.objects.create(user_access=self.access, division='Test', season=2026,
+                jornada=journey, cerrada=True, datos={'M0': {'app': score}})
+        with patch('core.views.active_league_managers', return_value=self.roster):
+            result = self.client.get('/api/estadisticas/2026/19/?division=Test&mode=general&through=19').json()
+        self.assertEqual(result['rows'][0]['total'], 13)
+        self.assertTrue(result['cutoff_closed'])
