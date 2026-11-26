@@ -2,6 +2,7 @@ import random
 from math import floor
 
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.db import transaction
 from django.shortcuts import redirect, render
 
@@ -228,13 +229,17 @@ def comeback_history(pair, rows, journeys, records):
                          {'name': second['manager'], 'kind': 'second', 'percent': percentages[2], 'history': categories[2]}]}
 
 
-def build_bracket(people, records, roster):
+def cup_tiebreaks(season):
+    entries = CambioRegistro.objects.filter(season=season, accion='desempate Copa').order_by('id')
+    return {(item.detalle['ronda'], item.detalle['cruce']): item.detalle for item in entries}
+
+
+def build_bracket(people, records, roster, tiebreaks=None):
     rounds = []
     current = people
     awards = {}
     for stage_index, (label, journeys) in enumerate(ROUNDS):
         matches, advancing = [], []
-        ranks = None
         for index in range(0, len(current), 2):
             pair = current[index:index + 2]
             rows, complete = [], len(pair) == 2 and all(pair)
@@ -251,18 +256,27 @@ def build_bracket(people, records, roster):
                 complete = complete and all(score['closed'] for score in scores)
                 rows.append({'person': person, 'scores': scores, 'total': sum(score['value'] for score in scores) if all(score['value'] is not None for score in scores) else None})
             winner, reason = None, ''
+            tied = bool(complete and rows[0]['total'] == rows[1]['total'])
+            tie_data = (tiebreaks or {}).get((stage_index, index // 2 + 1))
+            signature = [{'manager': p['manager'], 'division': p['division'],
+                          'scores': [score['value'] for score in row['scores']]}
+                         for p, row in zip(pair, rows)] if complete else None
             if complete:
                 if rows[0]['total'] != rows[1]['total']:
                     winner = pair[0 if rows[0]['total'] > rows[1]['total'] else 1]
                 else:
-                    if ranks is None:
-                        ranks = standings(records, roster, journeys[-1], awards)
-                    places = [ranks.get((person['division'], person['manager']), {}).get('position') for person in pair]
-                    if all(place is not None for place in places) and places[0] != places[1]:
-                        winner = pair[0 if places[0] < places[1] else 1]
-                        reason = 'Desempate: mejor posición en la general de su división'
-                    else:
-                        reason = 'Empate también en posición general: pendiente de resolver'
+                    reason = 'Empate: pendiente de introducir los datos de desempate.'
+                    if tie_data and tie_data.get('participantes') == signature:
+                        for key, label, lower in [('goles', 'mayor número de goles', False),
+                                                   ('asistencias', 'mayor número de asistencias', False),
+                                                   ('tarjetas', 'menos tarjetas', True)]:
+                            a, b = tie_data['datos'][0][key], tie_data['datos'][1][key]
+                            if a != b:
+                                winner = pair[0 if (a < b if lower else a > b) else 1]
+                                reason = f'{winner["manager"]} pasa por {label} ({a}–{b}).'
+                                break
+                        if not winner:
+                            reason = 'Empate en goles, asistencias y tarjetas: pendiente de resolver.'
             for row in rows:
                 row['winner'] = bool(winner and row['person'] == winner)
                 row['prize'] = (50 if row['winner'] else 25) if winner and stage_index == 4 else 15 if row['winner'] else 0
@@ -275,6 +289,7 @@ def build_bracket(people, records, roster):
                     target = {'manager': pair[1 if delta > 0 else 0]['manager'], 'first': delta < 0,
                               'gap': abs(delta), 'win': abs(delta) + 1}
             matches.append({'number': index // 2 + 1, 'rows': rows, 'winner': winner, 'reason': reason, 'complete': complete,
+                            'tied': tied, 'stage_index': stage_index,
                             'target': target,
                             'comeback': comeback_history(pair, rows, journeys, records)})
             advancing.append(winner)
@@ -299,7 +314,7 @@ def cup_awards(season):
         names = roster.setdefault(person['division'], [])
         if person['manager'] not in names:
             names.append(person['manager'])
-    rounds = build_bracket(draw.participantes, latest_records(season), roster)
+    rounds = build_bracket(draw.participantes, latest_records(season), roster, cup_tiebreaks(season))
     awards = {}
     for stage in rounds:
         for match in stage['matches']:
@@ -310,7 +325,7 @@ def cup_awards(season):
     return awards
 
 
-def send_cup_advancement_emails(season, journey, actor_id):
+def send_cup_advancement_emails(season, journey, actor_id, match_number=None):
     """Notify a winner only after both divisions have closed the deciding round."""
     import logging
     from django.conf import settings
@@ -328,11 +343,13 @@ def send_cup_advancement_emails(season, journey, actor_id):
         names = roster.setdefault(person['division'], [])
         if person['manager'] not in names:
             names.append(person['manager'])
-    rounds = build_bracket(draw.participantes, latest_records(season), roster)
+    rounds = build_bracket(draw.participantes, latest_records(season), roster, cup_tiebreaks(season))
     for stage in rounds:
         if stage['journeys'][-1] != journey:
             continue
         for match in stage['matches']:
+            if match_number is not None and match['number'] != match_number:
+                continue
             winner = match['winner']
             if not winner:
                 continue
@@ -370,6 +387,41 @@ def copa_rey(request):
     can_draw = request.user.is_superuser or access.role == 'admin'
     people, missing = participants(records, roster)
     ready = not missing and len(people) == 32 and len({(p['division'], p['manager']) for p in people}) == 32
+    draw = CopaReySorteo.objects.filter(season=season).first()
+    if request.method == 'POST' and request.POST.get('action') == 'desempate':
+        from django.http import HttpResponseForbidden, HttpResponseBadRequest
+        if not can_draw:
+            return HttpResponseForbidden('Solo los administradores pueden introducir el desempate.')
+        if not draw:
+            return HttpResponseBadRequest('No existe un sorteo.')
+        try:
+            stage = int(request.POST['stage'])
+            number = int(request.POST['match'])
+            if stage < 0 or stage >= len(ROUNDS) or number < 1:
+                raise ValueError
+            for person in draw.participantes:
+                names = roster.setdefault(person['division'], [])
+                if person['manager'] not in names:
+                    names.append(person['manager'])
+            rounds = build_bracket(draw.participantes, records, roster, cup_tiebreaks(season))
+            match = rounds[stage]['matches'][number - 1]
+            if not match['tied']:
+                raise ValueError
+            values = []
+            for i in range(2):
+                entry = {key: int(request.POST[f'{key}_{i}']) for key in ('goles', 'asistencias', 'tarjetas')}
+                if any(value < 0 or value > 999 for value in entry.values()):
+                    raise ValueError
+                values.append(entry)
+            signatures = [{'manager': row['person']['manager'], 'division': row['person']['division'],
+                           'scores': [score['value'] for score in row['scores']]} for row in match['rows']]
+        except (KeyError, ValueError, IndexError):
+            return HttpResponseBadRequest('Revisa los datos: la eliminatoria debe estar cerrada y empatada, y los valores deben ser números no negativos.')
+        CambioRegistro.objects.create(usuario=request.user, season=season, jornada=ROUNDS[stage][1][-1],
+            accion='desempate Copa', detalle={'ronda': stage, 'cruce': number, 'participantes': signatures, 'datos': values})
+        transaction.on_commit(lambda: send_cup_advancement_emails(season, ROUNDS[stage][1][-1], request.user.pk, number))
+        messages.success(request, 'Desempate guardado. Si hay un ganador, se intentará enviarle la felicitación.')
+        return redirect('copa_rey')
     if request.method == 'POST' and can_draw and ready:
         with transaction.atomic():
             # Serialize concurrent clicks on the same administrator's account.
@@ -385,5 +437,5 @@ def copa_rey(request):
             names = roster.setdefault(person['division'], [])
             if person['manager'] not in names:
                 names.append(person['manager'])
-    return render(request, 'copa_rey.html', {'draw': draw, 'rounds': build_bracket(draw.participantes, records, roster) if draw else [], 'people': people, 'missing': missing, 'ready': ready, 'can_draw': can_draw,
+    return render(request, 'copa_rey.html', {'draw': draw, 'rounds': build_bracket(draw.participantes, records, roster, cup_tiebreaks(season)) if draw else [], 'people': people, 'missing': missing, 'ready': ready, 'can_draw': can_draw,
                                           'qualification_outlook': qualification_outlook(records, roster)})

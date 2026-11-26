@@ -62,12 +62,12 @@ class BracketTests(SimpleTestCase):
         self.assertIsNone(comeback_history(pair, rows, (12, 13), records))
 
     @patch('core.views.vip_adjustments_for_journey', return_value={})
-    def test_general_position_breaks_app_tie(self, _):
+    def test_general_position_does_not_break_cup_tie(self, _):
         self.records[('Test', 13)].datos['M1']['app'] = 101
         self.records[('Test', 12)].datos['M1']['q'] = 4
         bracket = build_bracket(self.people, self.records, self.roster)
-        self.assertEqual(bracket[0]['matches'][0]['winner']['manager'], 'M1')
-        self.assertIn('Desempate', bracket[0]['matches'][0]['reason'])
+        self.assertIsNone(bracket[0]['matches'][0]['winner'])
+        self.assertIn('pendiente', bracket[0]['matches'][0]['reason'])
 
     @patch('core.views.vip_adjustments_for_journey', return_value={})
     def test_equal_general_position_stays_pending(self, _):
@@ -77,6 +77,25 @@ class BracketTests(SimpleTestCase):
         self.assertIsNone(match['winner'])
         self.assertIn('pendiente', match['reason'])
         self.assertFalse(any(row['prize'] for row in match['rows']))
+
+    def test_tiebreak_order_and_stale_scores(self):
+        self.records[('Test', 13)].datos['M1']['app'] = 101
+        signature = [{'manager': 'M0', 'division': 'Test', 'scores': [100, 100]},
+                     {'manager': 'M1', 'division': 'Test', 'scores': [99, 101]}]
+        entry = {'participantes': signature, 'datos': [
+            {'goles': 3, 'asistencias': 1, 'tarjetas': 8},
+            {'goles': 3, 'asistencias': 2, 'tarjetas': 9}]}
+        match = build_bracket(self.people, self.records, self.roster, {(0, 1): entry})[0]['matches'][0]
+        self.assertEqual(match['winner']['manager'], 'M1')
+        self.assertIn('asistencias', match['reason'])
+        entry['datos'][0]['asistencias'] = 2
+        match = build_bracket(self.people, self.records, self.roster, {(0, 1): entry})[0]['matches'][0]
+        self.assertEqual(match['winner']['manager'], 'M0')
+        self.assertIn('tarjetas', match['reason'])
+        self.records[('Test', 12)].datos['M0']['app'] = 99
+        self.records[('Test', 13)].datos['M0']['app'] = 101
+        match = build_bracket(self.people, self.records, self.roster, {(0, 1): entry})[0]['matches'][0]
+        self.assertIsNone(match['winner'])
 
     @patch('core.views.vip_adjustments_for_journey', return_value={})
     def test_guest_replaces_ordinary_slot(self, _):
@@ -111,6 +130,27 @@ class CupIntegrationTests(TestCase):
         with patch('core.cup.participants', return_value=(self.people,[])):
             self.client.post('/torneos/copa-del-rey/')
         self.assertFalse(CopaReySorteo.objects.exists())
+
+    def test_admin_can_resolve_closed_tie_and_viewer_cannot(self):
+        CopaReySorteo.objects.create(season=2026, participantes=self.people, creado_por=self.user)
+        for journey in (12, 13):
+            JornadaRegistro.objects.create(user_access=self.access, division='Test', season=2026,
+                jornada=journey, cerrada=True, datos={f'M{i}': {'app': 100 if i in (0, 1) else 50-i} for i in range(32)})
+        payload = {'action': 'desempate', 'stage': '0', 'match': '1',
+                   'goles_0': '2', 'asistencias_0': '1', 'tarjetas_0': '3',
+                   'goles_1': '1', 'asistencias_1': '5', 'tarjetas_1': '0'}
+        with patch('core.views.active_league_managers', return_value=self.roster):
+            self.access.role = 'viewer'
+            self.access.save()
+            self.assertEqual(self.client.post('/torneos/copa-del-rey/', payload).status_code, 403)
+            self.access.role = 'admin'
+            self.access.save()
+            with patch('core.cup.send_cup_advancement_emails') as notify, self.captureOnCommitCallbacks(execute=True):
+                self.assertEqual(self.client.post('/torneos/copa-del-rey/', payload).status_code, 302)
+            notify.assert_called_once_with(2026, 13, self.user.pk, 1)
+            response = self.client.get('/torneos/copa-del-rey/')
+            self.assertContains(response, 'M0 pasa por mayor número de goles')
+            self.assertEqual(cup_awards(2026)[(13, 'Test', 'M0')], 15)
 
     def test_awards_reach_general_and_round_and_reopen_removes_them(self):
         CopaReySorteo.objects.create(season=2026,participantes=self.people,creado_por=self.user)
